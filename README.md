@@ -7,10 +7,15 @@
   - [HTTP API REST](#http-api-rest)
     - [Tests CLI](#tests-cli)
     - [Android Java](#android-java)
-    - [Qt C++](#qt-c)
       - [Requêtes HTTP](#requêtes-http)
       - [Décodage JSON](#décodage-json)
       - [Réception UDP](#réception-udp)
+      - [Screenshots](#screenshots)
+    - [Qt C++](#qt-c)
+      - [Requêtes HTTP](#requêtes-http-1)
+      - [Décodage JSON](#décodage-json-1)
+      - [Réception UDP](#réception-udp-1)
+      - [Screenshots](#screenshots-1)
   - [Auteur](#auteur)
 
 ---
@@ -132,6 +137,213 @@ $ curl --location -g 'http://192.168.1.47/relay?state=0'
 
 ### Android Java
 
+L'application Qt doit être capable d'émettre des requêtes HTTP, décoder des données [JSON](http://tvaira.free.fr/projets/activites/activite-json.html) et de recevoir des datagrammes UDP.
+
+#### Requêtes HTTP
+
+Pour émettre des requêtes HTTP sous Android, il y a plusieurs possibilités. Ici, on utilisera le client [OkHttp](https://square.github.io/okhttp/).
+
+> On pourrait aussi utiliser le [client HTTP](https://cloud.google.com/java/docs/reference/google-http-client/latest/com.google.api.client.http) de l'API Google.
+
+Pour utiliser [OkHttp](https://square.github.io/okhttp/), il faut tout d'abord ajouter dans le fichier `app/build.gradle` :
+
+```
+dependencies {
+    ...
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    ...
+}
+```
+
+Dans le code source java, il faut préalablement importer les différentes classes utiles pour émettre des requêtes HTTP :
+
+```java
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.MediaType;
+import okhttp3.RequestBody;
+```
+
+On commence par instancier un objet de type `OkHttpClient` :
+
+```java
+OkHttpClient clientOkHttp = new OkHttpClient();
+```
+
+Émettre une requête **GET** pour obtenir les informations de la prise :
+
+```java
+String adresseIPSwitchStrom = "192.168.1.47";
+String url = "http://" + adresseIPSwitchStrom + "/report";
+Request request = new Request.Builder()
+                      .url(url)
+                      .addHeader("Content-Type", "application/json")
+                      .addHeader("Accept", "application/json")
+                      .build();
+
+clientOkHttp.newCall(request).enqueue(new Callback() {
+    @Override
+    public void onFailure(Call call, IOException e)
+    {
+        e.printStackTrace();
+    }
+
+    @Override
+    public void onResponse(Call call, Response response) throws IOException
+    {
+        Log.d(TAG, "onResponse - message = " + response.message());
+        Log.d(TAG, "onResponse - code    = " + response.code());
+
+        if(!response.isSuccessful())
+        {
+            throw new IOException(response.toString());
+        }
+
+        final String body = response.body().string();
+        Log.d(TAG, "onResponse - body    = " + body);
+        // @todo décoder les données JSON
+    }
+});
+```
+
+Émettre une requête **GET** pour activer la prise :
+
+```java
+String adresseIPSwitchStrom = "192.168.1.47";
+// @see "http://" + adresseIPSwitchStrom + "/toogle";
+String url = "http://" + adresseIPSwitchStrom + "/relay?state=1"; // /relay?state=0 pour éteindre
+Request request = new Request.Builder()
+                      .url(url)
+                      .addHeader("Content-Type", "application/json")
+                      .addHeader("Accept", "application/json")
+                      .build();
+
+clientOkHttp.newCall(request).enqueue(new Callback() {
+    @Override
+    public void onFailure(Call call, IOException e)
+    {
+        e.printStackTrace();
+    }
+
+    @Override
+    public void onResponse(Call call, Response response) throws IOException
+    {
+        Log.d(TAG, "onResponse - message = " + response.message());
+        Log.d(TAG, "onResponse - code    = " + response.code());
+
+        if(!response.isSuccessful())
+        {
+            throw new IOException(response.toString());
+        }
+    }
+});
+```
+
+#### Décodage JSON
+
+La requête **GET** `/report` retourne des données [JSON](http://tvaira.free.fr/projets/activites/activite-json.html) :
+
+```json
+{"power":0,"Ws":0,"relay":true,"temperature":21.5}
+```
+
+Exemple de décodage :
+
+```cpp
+QString donneesJSON = "{\"power\":0,\"Ws\":0,\"relay\":true,\"temperature\":21.5}";
+JSONObject json = null;
+
+try
+{
+    json = new JSONObject(donneesJSON);
+    if(json.has("power"))
+    {
+        Log.d(TAG, "lireEtat() power = " + json.getDouble("power"));
+    }
+    // ...
+    Log.d(TAG, "lireEtat() Ws    = " + json.getDouble("Ws"));
+    Log.d(TAG, "lireEtat() relay = " + json.getBoolean("relay"));
+    Log.d(TAG, "lireEtat() temperature = " + json.getDouble("temperature"));
+}
+catch(JSONException e)
+{
+    e.printStackTrace();
+}
+```
+
+#### Réception UDP
+
+Pour découvrir un appareil myStrom sur le réseau, il faut écouter sur le port **UDP 7979** (les paquets émis en _broadcast_ `255.255.255.255`). Chaque appareil myStrom diffusera un message (les boutons uniquement s'ils sont en mode configuration).
+
+Pour [communiquer en UDP sous Android](http://tvaira.free.fr/dev/android/android-udp.html), il faudra utiliser l'interface Java des sockets (_package_ `java.net`).
+
+```java
+private DatagramSocket socket;
+private final int PORT_DETECTION_MYSTROM = 7979;
+private final int TIMEOUT_RECEPTION_REPONSE = 30000;
+```
+
+Exemple :
+
+```java
+private void decouvrirAppareilsMyStrom()
+{
+    if(socket == null) {
+        try {
+            socket = new DatagramSocket(PORT_DETECTION_MYSTROM);
+            socket.setSoTimeout(TIMEOUT_RECEPTION_REPONSE);
+        } catch (SocketException se) {
+            se.printStackTrace();
+        }
+    }
+    runOnUiThread(new Runnable() {
+        @Override
+        public void run()
+        {
+            while (socket != null && !socket.isClosed()) {
+                byte[] bufferReception = new byte[8];
+                DatagramPacket datagramme = new DatagramPacket(bufferReception, bufferReception.length);
+
+                try {
+                    socket.receive(datagramme);
+                    String adresseIPSwitch = datagramme.getAddress().toString();
+                    Log.d(TAG, "decouvrirAppareilsMyStrom() emetteurAdresse = " + adresseIPSwitch.substring(1) + " emetteurPort = " + datagramme.getPort());
+                    StringBuilder donneesRecues = new StringBuilder();
+                    for (byte b : datagramme.getData()) {
+                        donneesRecues.append(String.format("%02X ", b));
+                    }
+                    Log.d(TAG, "decouvrirAppareilsMyStrom() donneesRecues = " + donneesRecues + " nbOctets = " + datagramme.getLength());
+
+                    // ...
+
+                    if(adresseIPSwitch.substring(1).length() > 0)
+                        adresseIPSwitchStrom = adresseIPSwitch.substring(1);
+                    return;
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    });
+}
+```
+
+#### Screenshots
+
+Un exemple d'application Android "basique" est fourni dans `src/android/` :
+
+![](./images/android-accueil.png)
+
+![](./images/android-detection.png)
+
+![](./images/android-report-allumee.png)
+
+![](./images/android-eteindre.png)
+
+![](./images/android-report-eteinte.png)
 
 ### Qt C++
 
@@ -309,7 +521,9 @@ void MyStromSwitch::receptionnerDatagrammes()
 }
 ```
 
-Un exemple d'application Qt "basique" est fournie dans `src/qt/` :
+#### Screenshots
+
+Un exemple d'application Qt "basique" est fourni dans `src/qt/` :
 
 ![](./images/qt-detection.png)
 
@@ -318,7 +532,6 @@ Un exemple d'application Qt "basique" est fournie dans `src/qt/` :
 ![](./images/qt-report-allumee.png)
 
 ![](./images/qt-report-power.png)
-
 
 ## Auteur
 
