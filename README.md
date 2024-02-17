@@ -8,6 +8,9 @@
     - [Tests CLI](#tests-cli)
     - [Android Java](#android-java)
     - [Qt C++](#qt-c)
+      - [Requêtes HTTP](#requêtes-http)
+      - [Décodage JSON](#décodage-json)
+      - [Réception UDP](#réception-udp)
   - [Auteur](#auteur)
 
 ---
@@ -84,6 +87,8 @@ https://api.mystrom.ch/#rest-api
 |Set State TOGGLE |`http://[IP]/toggle`||
 |Get Values |`http://[IP]/report`|`{"power":0,"Ws":0,"relay":true,"temperature":21.5}`|
 
+> Les prises myStrom envoient une valeur instantanée de la puissance (`power`) en [Watt](https://fr.wikipedia.org/wiki/Watt) (`W`) et la quantité d'énergie (`Ws`)  sur une période de 30 s en Ws.
+
 ### Tests CLI
 
 - Recherche de réseaux WiFi :
@@ -129,6 +134,190 @@ $ curl --location -g 'http://192.168.1.47/relay?state=0'
 
 
 ### Qt C++
+
+L'application Qt doit être capable d'émettre des requêtes HTTP, décoder des données [JSON](http://tvaira.free.fr/projets/activites/activite-json.html) et de recevoir des datagrammes UDP.
+
+#### Requêtes HTTP
+
+Pour émettre des requêtes HTTP sous Qt, il faudra utiliser la classe [QNetworkAccessManager](https://doc.qt.io/qt-6/qnetworkaccessmanager.html).
+
+Il faut tout d'abord activer le module `network` dans le fichier de projet `.pro` pour accéder aux classes :
+
+```
+QT += network
+```
+
+Il faut ensuite accéder aux déclarations des classes :
+
+```cpp
+#include <QtNetwork/QNetworkAccessManager>
+#include <QNetworkReply>
+```
+
+On commence par instancier un objet de type `QNetworkAccessManager` :
+
+```cpp
+QNetworkAccessManager* accesReseau = new QNetworkAccessManager(this);
+```
+
+Il faut ensuite connecter le signal `finished()` à un slot qui permettra de traiter la réponse à une requête :
+
+```cpp
+connect(accesReseau,
+        SIGNAL(finished(QNetworkReply*)),
+        this,
+        SLOT(traiterReponseSwitch(QNetworkReply*)));
+```
+
+Émettre une requête **GET** pour récupérer les informations de la prise :
+
+```cpp
+QString         api = "http://" + adresseIPSwitch + "/report";
+QUrl            url = QUrl(api);
+QNetworkRequest requeteGet;
+requeteGet.setUrl(url);
+requeteGet.setRawHeader("Content-Type", "application/json");
+requeteGet.setRawHeader(QByteArray("Accept"), QByteArray("application/json"));
+accesReseau->get(requeteGet);
+```
+
+Le slot sera automatiquement appelé lorsque la réponse sera reçue et permettra de traiter les données [JSON](https://doc.qt.io/qt-6/qjsondocument.html) reçues :
+
+```cpp
+void MyStromSwitch::traiterReponseSwitch(QNetworkReply* reponse)
+{
+    if(reponse->error() != QNetworkReply::NoError)
+    {
+        return;
+    }
+    QByteArray donneesReponse = reponse->readAll();
+
+    QJsonDocument documentJson = QJsonDocument::fromJson(donneesReponse);
+
+    if(requeteApi.contains("report"))
+    {
+        /*
+            {"power":0,"Ws":0,"relay":true,"temperature":21.5}
+        */
+        QJsonObject json = documentJson.object();
+        qDebug() << Q_FUNC_INFO << "power" << json["power"].toDouble();
+        qDebug() << Q_FUNC_INFO << "Ws" << json["Ws"].toDouble();
+        qDebug() << Q_FUNC_INFO << "relay" << json["relay"].toBool();
+        qDebug() << Q_FUNC_INFO << "temperature" << json["temperature"].toDouble();
+    }
+    else if(requeteApi.contains("relay"))
+    {
+        emit nouvelEtat();
+    }
+}
+```
+
+Émettre une requête **GET** pour activer la prise :
+
+```cpp
+// @see http://[IP]/toggle
+QString         api = "http://" + adresseIPSwitch + "/relay?state=1"; // /relay?state=0 pour éteindre
+QNetworkRequest requeteGet;
+QUrl            url = QUrl(api);
+requeteGet.setUrl(url);
+requeteGet.setRawHeader("Content-Type", "application/json");
+requeteGet.setRawHeader(QByteArray("Accept"), QByteArray("application/json"));
+accesReseau->get(requeteGet);
+```
+
+#### Décodage JSON
+
+La requête **GET** `/report` retourne des données [JSON](http://tvaira.free.fr/projets/activites/activite-json.html) :
+
+```json
+{"power":0,"Ws":0,"relay":true,"temperature":21.5}
+```
+
+Qt fournit des classes pour traiter des données [JSON](http://tvaira.free.fr/projets/activites/activite-json.html), notamment :
+
+- QJsonDocument : https://doc.qt.io/qt-6/qjsondocument.html
+- QJsonObject : https://doc.qt.io/qt-6/qjsonobject.html
+
+Exemple de décodage :
+
+```cpp
+QByteArray donneesJSON = "{\"power\":0,\"Ws\":0,\"relay\":true,\"temperature\":21.5}";
+QJsonDocument documentJson = QJsonDocument::fromJson(donneesReponse);
+
+QJsonObject json = documentJson.object();
+qDebug() << Q_FUNC_INFO << "power" << json["power"].toDouble();
+qDebug() << Q_FUNC_INFO << "Ws" << json["Ws"].toDouble();
+qDebug() << Q_FUNC_INFO << "relay" << json["relay"].toBool();
+qDebug() << Q_FUNC_INFO << "temperature" << json["temperature"].toDouble();
+```
+
+#### Réception UDP
+
+Pour découvrir un appareil myStrom sur le réseau, il faut écouter sur le port **UDP 7979** (les paquets émis en _broadcast_ `255.255.255.255`). Chaque appareil myStrom diffusera un message (les boutons uniquement s'ils sont en mode configuration).
+
+Pour communiquer en UDP sous Qt, il faudra utiliser la classe [QUdpSocket](https://doc.qt.io/qt-6/qudpsocket.html) qui fait partie aussi du module `network`.
+
+Il faut accéder aux déclarations des classes :
+
+```cpp
+#include <QUdpSocket>
+#include <QNetworkDatagram>
+```
+
+On commence par instancier un objet de type `QUdpSocket` :
+
+```cpp
+QUdpSocket* udpSocket = new QUdpSocket(this);
+```
+
+Il est nécessaire d'attacher la _socket_ UDP localement au port `7979` :
+
+```cpp
+udpSocket->bind(QHostAddress::AnyIPv4, 7979);
+```
+
+Il faut ensuite connecter le signal `readyRead()` à un slot qui permettra de traiter les datagrammes reçus sur la _socket_ UDP :
+
+```cpp
+connect(udpSocket, SIGNAL(readyRead()), this, SLOT(receptionnerDatagrammes()));
+```
+
+Le slot sera automatiquement appelé lorsque des datagrammes UDP seront reçus :
+
+```cpp
+void MyStromSwitch::receptionnerDatagrammes()
+{
+    while(udpSocket->hasPendingDatagrams())
+    {
+        QNetworkDatagram datagramme = udpSocket->receiveDatagram();
+
+        qDebug() << Q_FUNC_INFO << "emetteurAdresse" << datagramme.senderAddress().toString()
+                 << "emetteurPort" << datagramme.senderPort();
+        qDebug() << Q_FUNC_INFO << "destinationAdresse"
+                 << datagramme.destinationAddress().toString() << "destinationPort"
+                 << datagramme.destinationPort();
+        qDebug() << Q_FUNC_INFO << "nbOctets" << datagramme.data().size() << "donneesDatagramme"
+                 << datagramme.data().toHex();
+
+        if(datagramme.destinationAddress().toString() == "255.255.255.255" &&
+           datagramme.destinationPort() == PORT_UDP_MYSTROM)
+        {
+            adresseIPSwitch = datagramme.senderAddress().toString();
+            return;
+        }
+    }
+}
+```
+
+Un exemple d'application Qt "basique" est fournie dans `src/qt/` :
+
+![](./images/qt-detection.png)
+
+![](./images/qt-report-eteinte.png)
+
+![](./images/qt-report-allumee.png)
+
+![](./images/qt-report-power.png)
 
 
 ## Auteur
