@@ -1,0 +1,3949 @@
+{
+	"info": {
+		"_postman_id": "ec166348-f396-4c70-ba3a-14082821d476",
+		"name": "myStrom",
+		"description": "# REST API\r\n\r\nAll myStrom devices offer a REST API (REST = representational State Transfer).\r\n\r\nThe interface allows you to access/control the device directly from your local network independently of myStrom. That means you don’t need a myStrom account or the myStrom app.\r\nWith this documentation you can integrate myStrom devices in almost any environment.\r\n\r\n## MAC address\r\n\r\nOften in these requests you will see a number like this `200AD4074I68`. This is the MAC address of the device without any delimiters.\r\n\r\n## Important note for Buttons\r\n\r\nKeep in mind that for the Button or Button+ to respond to any of these requests they have to be in the configuration mode:\r\n\r\n- Button: (Re-)Connect the button to a power source with the provided USB cable. Press the button and after some time it should become visible in the network.\r\n- Button+: Open the back of the button by rotating it clockwise. Remove the batteries and reinsert them. The Button+ should now be visible.\r\n\r\n## Detect myStrom devices\r\n\r\nTo discover a myStrom device in your network, you mus listen on UDP port 7979. Each myStrom device will broadcast a message (buttons only if they are in the configuration mode). The first 6 bytes contain the mac address of the device and the following two bytes are a number that corresponds to the device type. See below for the list of type Numbers.\r\n\r\n## Security\r\n\r\nmyStrom Switches & myStrom LED Strips have theire own web interface where a user can specify an API access token. If such a token is specified, any request must have header set accordingly. E.g. `curl -H \"Token: XXXXX\" 192......`. In order to access the web interface simply visit the devcies ip address in your webbrowser. \r\nWhen the devcies are in wifi mode, you can also manually connect to these devices by connecting to their wifi network, visit the web interface at 192.168.254.1 and set the wifi the device should connect to and its password directly in the web interface. \r\n\r\nFor all other devices API is transparent and has no authentication. If someone has access to your local network, **they will be able to control your myStrom devices**.\r\nPlease apply strong security mechanisms to protect your network.\r\n\r\n## The CORS protection\r\n\r\nIn order to increase security by preventing unwanted execution of malicious HTTP requests to devices from browsers, e-mail clients, etc. with specially prepared scripts and URLs, CORS protection was introduced.\r\n\r\nThis mechanism works in a simple way to minimize its impact on external integrating systems. If the HTTP request in the header contains the `Accept-Encoding` field then the same request should also have a `Referer` or `Origin` header field starting with `http://{target device ip}`. If the `Referer` or `Origin` field does not match the expected value or is missing in the case of a request with `Accept-Encoding` then the request is rejected. If the request is made without the `Accept-Encoding` header then the `Referer` and `Origin` fields do not need to be provided.\r\n\r\nSome requests cannot be performed if the `Accept-Encoding` header is given even if the correct `Referer` and `Origin` values are given. This are mainly requests that allow you to change the device state by using the `GET` method.\r\n\r\nIt also means that the query from the browser by simply entering the IP address of the device and operations on the REST API will not work.\r\n\r\n**You can disable this mechanism if you are not a developer of a more integration system available to a larger number of users, otherwise you run the risk of unwanted REST API operations that may lead to data acquisition or operations on the user's device.**\r\n\r\nTo disable protection using the curl utility, make the following request:\r\n\r\n```curl -i -X POST http://{deviceip}/api/v1/protection/disable```\r\n\r\nTo re-enable protection, follow the command below or reset the device to factory settings:\r\n\r\n```curl -i -X POST http://{deviceip}/api/v1/protection/enable```\r\n\r\nSecurity does not work in the self AP mode.\r\n\r\nProtection has been implemented or will be introduced starting with the following firmwares:\r\n\r\n- WS2/WSE/WRS/WLL 3.82.56\r\n- WRB 2.59.32\r\n- WBP/WBS 2.74.36\r\n\r\n## LEDs blinking patterns\r\n\r\n![Block Diagram](https://mystrom.ch/postman-static/LEDsPatterns.svg \"Blinking patterns\")\r\n",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "21755846"
+	},
+	"item": [
+		{
+			"name": "General Requests",
+			"item": [
+				{
+					"name": "Get general information",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"user-agent": true,
+							"accept-encoding": true,
+							"connection": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{device_ip}}/api/v1/info",
+							"protocol": "http",
+							"host": [
+								"{{device_ip}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"info"
+							]
+						},
+						"description": "Gets general information about your myStrom device. Will return a JSON object with:\n\n| **Field** | **Type** | **Description** |\n| --- | --- | --- |\n| version | STRING | Current firmware version |\n| mac | STRING | MAC address, without any delimeters in capital characters |\n| type | UINT | Numeric device type |\n| ssid | STRING | The name of the WiFi network to which the device connects |\n| ip | STRING | Current ip address |\n| mask | STRING | The mask of the network the device connects to |\n| gw | STRING | Gateway IP address |\n| dns | STRING | DNS server address |\n| static | BOOL | If the network IP addresses have been entered manually, the field is set to true, if the address is obtained from the DHCP server, the field is set to false |\n| connected | BOOL | The device is set up to connect to a Wi-Fi network |\n| signal | UINT | The percentage of Wi-Fi signal strength (only available on certain devices such as light bulb/button) |\n| connectionStatus | OBJ | The object contains diagnostic information about network and server connection |\n\nThe type list is as follows:\n\n| Device | Numeric type | **Literal type** |\n| --- | --- | --- |\n| Switch CH v1 | 101 | WSW |\n| Bulb | 102 | WRS |\n| Button+ | 103 | WBP |\n| Button | 104 | WBS |\n| LED strip | 105 | WRS |\n| Switch CH v2 | 106 | WS2 |\n| Switch EU | 107 | WSE |\n| Motion sensor | 110 | WMS |\n| modulo® STECCO  <br>modulo® CUBO | 113 | WLL |\n| Button Plus 2nd | 118 | BP2 |\n| Switch Zero | 120 | LCS |"
+					},
+					"response": [
+						{
+							"name": "Get general information",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{device_ip}}/api/v1/info",
+									"protocol": "http",
+									"host": [
+										"{{device_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"info"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "243"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"version\": \"2.59.32\",\n    \"mac\": \"6001940376EB\",\n    \"type\": 102,\n    \"ssid\": \"personal\",\n    \"ip\": \"192.168.0.23\",\n    \"mask\": \"255.255.255.0\",\n    \"gw\": \"192.168.0.1\",\n    \"dns\": \"192.168.0.1\",\n    \"static\": false,\n    \"connected\": true,\n    \"signal\": 94\n}"
+						}
+					]
+				},
+				{
+					"name": "Connecting to a Wi-Fi network",
+					"protocolProfileBehavior": {
+						"followRedirects": false
+					},
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"ssid\": \"WIFI\",\n    \"passwd\": \"PASSWORD\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{device_ip}}/api/v1/connect",
+							"protocol": "http",
+							"host": [
+								"{{device_ip}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"connect"
+							]
+						},
+						"description": "Configuration of connection to the WiFi network. The resource accepts a message with a JSON object in the body described below:\n\n| [**Field**](http://192.168.254.1/api/v1/connectField) | **Type** | **Required** | **Description** |\n| --- | --- | --- | --- |\n| ssid | STRING 1..32 | yes | The name of the WiFi network to which the device is to connect |\n| passwd | STRING 0..64 | no* | Password for the secured network, *some devices cannot connect to open networks |\n| ip | IP | no | The field and the following may be omitted when the IP configuration is to be obtained from the DHCP server, otherwise this and all the fields below must be set to the correct IP addresses |\n| mask | IP | no |  |\n| gw | IP | no |  |\n| dns | IP | no |  |\n\nThe field of IP type is a string of characters representing the numeric representation of the IPv4 address: 192.168.1.100 or 8.8.8.8.\n\n**Mention: Before using this API, first call api/v1/scan and make sure that the network is within range (applies to firmware version below 4, not applicable to Wi-Fi bulb/button).**\n\n``` bash\ncurl -i -d '{\"ssid\":\"WIFI\", \"passwd\":\"PASSWORD\"}' http://192.168.254.1/api/v1/connect\n\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Find nearby Wi-Fi networks",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"user-agent": true,
+							"accept-encoding": true,
+							"connection": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{device_ip}}/api/v1/scan",
+							"protocol": "http",
+							"host": [
+								"{{device_ip}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"scan"
+							]
+						},
+						"description": "Scans for nearby wifi networks. Will return a JSON array consisting alternatingly of a wifi name and its signal strength\n\n| **Field** | **Type** | **Description** |\n| --- | --- | --- |\n| Even field | STRING | The name of the WiFi network found |\n| Odd field | SINT | The signal strength of the Wi-Fi network mentioned in the previous field |"
+					},
+					"response": [
+						{
+							"name": "Find nearby Wi-Fi networks",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{device_ip}}/api/v1/scan",
+									"protocol": "http",
+									"host": [
+										"{{device_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"scan"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								}
+							],
+							"cookie": [],
+							"body": "[\n    \"myNet1\",\n    -43,\n    \"myNet2\",\n    -37\n]"
+						}
+					]
+				},
+				{
+					"name": "Manual firmware upgrade",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"value": "@[FILE ON DISK]",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://[Device IP]/load",
+							"protocol": "http",
+							"host": [
+								"[Device IP]"
+							],
+							"path": [
+								"load"
+							]
+						},
+						"description": "Upgrade the firmware of the device to the firmwarefile provided. \n\nMake sure that the firmware (.bin file) corresponds to your device type before uploading.\n\nReturns an empty body."
+					},
+					"response": []
+				},
+				{
+					"name": "Help",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{device_ip}}/help",
+							"protocol": "http",
+							"host": [
+								"{{device_ip}}"
+							],
+							"path": [
+								"help"
+							]
+						},
+						"description": "Returns quick help of available HTTP API queries, result depends on device type.\n\nConventions\n\nThe first word specifies the type of method the query should be executed: GET or POST. Then the path and possible parameters appear. Square brackets indicate the optional part. Sharp brackets mean that value should be substituted for them. The sharp start parenthesis is followed by the type of the variable and its range. The pipe character specifies that one of the values separated by it should be set. If there is a space after the path and its parameters, then the query parameters should be sent as a JSON object, otherwise the parameters for POST queries should be sent in the format key=value[&key=value] application / x-www-form-urlencoded. This API is available for all device types with the latest firmware version. It may not be on older devices."
+					},
+					"response": []
+				}
+			],
+			"description": "These requests can be executed on any myStrom device.",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Settings",
+			"item": [
+				{
+					"name": "Get device common settings",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"accept-encoding": true,
+							"connection": true
+						},
+						"followRedirects": false,
+						"disableUrlEncoding": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{device_ip}}/api/v1/settings",
+							"protocol": "http",
+							"host": [
+								"{{device_ip}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"settings"
+							]
+						}
+					},
+					"response": [
+						{
+							"name": "Get settings (bulb)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{device_ip}}/api/v1/settings",
+									"protocol": "http",
+									"host": [
+										"{{device_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"settings"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "36"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"panel\": true,\n    \"rest\": true\n}"
+						},
+						{
+							"name": "Get device common settings (switch 2)",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{device_ip}}/api/v1/settings",
+									"protocol": "http",
+									"host": [
+										"{{device_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"settings"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "72"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"rest\": true,\n    \"panel\": true,\n    \"hap_disable\": false,\n    \"name\": \"\",\n    \"temp_offset\": 0\n}"
+						}
+					]
+				},
+				{
+					"name": "Set settings",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"user-agent": true,
+							"accept-encoding": true,
+							"connection": true
+						}
+					},
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"rest\": true,\r\n    \"panel\": true,\r\n    \"hap_disable\": false,\r\n    \"name\": \"\",\r\n    \"temp_offset\": 0\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://{{device_ip}}/api/v1/settings",
+							"protocol": "http",
+							"host": [
+								"{{device_ip}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"settings"
+							]
+						},
+						"description": "Example of changing local temperature offset:\n\nUnder Linux:\n\n``` bash\ncurl -d '{\"temp_offset\":\"-1\"}' -H \"Content-Type: application/json\" -X POST\nhttp://192.168.1.121/api/v1/settings\n\n```\n\n*HTTP response 200 OK with payload*\n\n``` json\n{\"rest\":true,\"panel\":true,\"hap_disable\":false,\"name\":\"\",\"temp_offset\":-1}\n\n```\n\nUnder Windows CMD Shell:\n\n``` bash\ncurl -d \"{\\\"temp_offset\\\":\\\"1\\\"}\" -H \"Content-Type: application/json\" -X POST\nhttp://192.168.1.121/api/v1/settings\n\n```\n\n*HTTP response 200 OK with payload*\n\n``` json\n{\"rest\":true,\"panel\":true,\"hap_disable\":false,\"name\":\"\",\"temp_offset\":1}\n\n```"
+					},
+					"response": []
+				}
+			],
+			"description": "It allows you to read and write certain generic settings on the device, such as HTTP server access, device name and temperature offset.\n\nThe GET method returns a JSON object with the fields described in the following table. POST method takes the same object with changed values. In the object sent by the POST method, you do not need to send all the fields, you can also update individual fields.\n\n| Name | Type | Range | Default | Remarks |\n| --- | --- | --- | --- | --- |\n| rest | bool |  | true | Set this parameter to false will disable access to device control requests (REST API). |\n| panel | bool |  | true | Set this parameter to false will disable the WebUI, this API also will be blocked, so one way to reenable panel is factory reset. |\n| name | string | 0..32 | \"\" | Allows set the name of device. |\n| token | string | 0..256 | \"\" | This parameter is helpful for securing access to the HTTP server on the device. Setting the value to a non-zero string length will cause queries without specifying the value set in the HTTP header to be rejected with the 404 code. To enable access to the HTTP server in one of the header fields, send the Token: field with the set value. This parameter is not returned by reading the setting values. |\n| temp_offset | real | \\-30..30 | 0 | Concerns only WiFi Switch v2 CH/EU since FW version 3.82.57.  <br>It allows you to set the temperature offset locally. Note: setting this parameter will cause the temperature value with the offset to be sent to the myStrom server. A positive value of this parameter will increase the temperature, a negative value will decrease the temperature. Before you set this parameter, leave the device connected to the power supply with the relay turned off for 2 hours in order to equalize the temperature inside the housing. |\n\nThe code returned on successful value setting with POST is 200 OK. Code 400 is returned if there is a problem with parameters or their types and ranges."
+		},
+		{
+			"name": "myStrom Switch",
+			"item": [
+				{
+					"name": "Internet monitor",
+					"item": [
+						{
+							"name": "Get internet monitor settings",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true,
+								"disabledSystemHeaders": {
+									"user-agent": true,
+									"accept-encoding": true,
+									"connection": true
+								}
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/api/v1/monitor",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"monitor"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Internet monitor settings response",
+									"originalRequest": {
+										"method": "GET",
+										"header": [
+											{
+												"key": "Content-Type",
+												"name": "Content-Type",
+												"type": "text",
+												"value": "application/x-www-form-urlencoded",
+												"disabled": true
+											}
+										],
+										"url": {
+											"raw": "http://{{switch_ip}}/api/v1/monitor",
+											"protocol": "http",
+											"host": [
+												"{{switch_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"monitor"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "107"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Connection",
+											"value": "close"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"address\": \"\",\n    \"tryAt\": 15,\n    \"attempts\": 3,\n    \"inhibitTime\": 60,\n    \"pingTimeout\": 3000,\n    \"relayOffTime\": 5,\n    \"enabled\": false\n}"
+								}
+							]
+						},
+						{
+							"name": "Set internet monitor settings",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disabledSystemHeaders": {
+									"accept-encoding": true,
+									"user-agent": true,
+									"connection": true
+								}
+							},
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json",
+										"type": "text"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\r\n    \"address\": \"mystrom.ch\",\r\n    \"tryAt\": 15,\r\n    \"attempts\": 3,\r\n    \"inhibitTime\": 60,\r\n    \"pingTimeout\": 3000,\r\n    \"relayOffTime\": 5,\r\n    \"enabled\": false\r\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{switch_ip}}/api/v1/monitor",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"monitor"
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "The functionality allows you to monitor Internet access and, in the absence of it, to reset the router by temporarily disabling the relay (power cycle). Checking the Internet connection is based on periodic sending of a ping request. You can set how many ping requests may be left unanswered for the action to be taken. In the parameters, you can also set the time for which the relay will be turned off after detecting the lack of the Internet and for what time after turning the relay off and on, not to perform tests (time to start the router). To use functionality, the device output/relay should be turned on before.\n\nCurrently, the internet monitor will not work if there is no wifi or the connection is redirected to the router (some routers do so in the absence of internet). The problem will be improved in the next FW edition.\n\nConfiguration parameters:\n\n| **Field** | **Type** | **Description** |\n| --- | --- | --- |\n| enable (case POST request)\\*  <br>enabled (case GET request)\\* | BOOL | Is Internet monitor should be enabled. false by default. |\n| address | STRING | IPv4 address written numerically or in the form of a host name that will be periodically polled by ping request. Example: google.com. Empty by default |\n| tryAt | UINT (unit s) | Time interval between the next group of ping requests |\n| attempts | UINT(1..255) | How many times we retry to check the address if a request has failed and power cycle action will be executed |\n| inhibitTIme | UINT (unit s) | Time in which test actions are not undertaken after power cycle surgery. |\n| pingTimeout | UINT (unit ms) | Defines ping timeout to fail |\n| relayOffTime | UINT (unit s) | The relay turn off time, after this time the relay is restored to previously state. Power cycle time. |\n\nThe configuration is returned in the form of a JSON object, the object can be modified and sent back, it is also possible to send individual parts of the object separately. \\* The mention is that the enabled field is returned in the GET request and the enable field should be sent to the POST. The problem will be fixed in the next FW edition."
+				},
+				{
+					"name": "Turn on",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"user-agent": true,
+							"accept-encoding": true,
+							"connection": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/relay?state=1",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"relay"
+							],
+							"query": [
+								{
+									"key": "state",
+									"value": "1",
+									"description": "The value the relay/switch should be set to. 1 = turn on, 0 = turn off"
+								}
+							]
+						},
+						"description": "Turns the switch on. Does not return anything."
+					},
+					"response": []
+				},
+				{
+					"name": "Turn off",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"connection": true,
+							"accept-encoding": true,
+							"user-agent": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/relay?state=0",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"relay"
+							],
+							"query": [
+								{
+									"key": "state",
+									"value": "0",
+									"description": "The value the relay/switch should be set to. 1 = turn on, 0 = turn off"
+								}
+							]
+						},
+						"description": "Turns the switch off. Does not return anything."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"connection": true,
+							"accept-encoding": true,
+							"user-agent": true
+						},
+						"followRedirects": false,
+						"disableUrlEncoding": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/toggle",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"toggle"
+							]
+						},
+						"description": "Toggles the switch. Returns a JSON object with the following field:\n- `relay`: meaning if the relay/switch has now been set to off (false) or on (true). "
+					},
+					"response": [
+						{
+							"name": "Toggle",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/toggle",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"toggle"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "14"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"relay\": true\n}"
+						}
+					]
+				},
+				{
+					"name": "Get report",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"connection": true,
+							"accept-encoding": true,
+							"user-agent": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/report",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"report"
+							]
+						},
+						"description": "Gets a report from the switch. Returns a JSON object with the following fields:\n\n- `power`: The current power consumed by devices attached to the switch\n- `relay`: The current state of the relay (wether or not the relay is currently turned on)\n- `temperature`: The currently measured temperature by the switch. (Might initially be wrong, but will automatically correct itself over the span of a few hours)\n- `Ws`: The Ws field represents the average power value since the last call. It is the energy consumed divided by the time elapsed since the last call. _Energy = Ws ∙ ∆T. For continous consumption measurements (Ws values with timestamp stored in DB): Total Energy =_ ∑Ws ∙ (Tcurrent - Tbegin).\n- `energy_since_boot`: total energy in watt seconds that has been measured since the last power-up or restart of the device. Unit Ws (watt second), to convert to kWh divide this value by 3600000.\n- `time_since_boot`: the time in seconds that has elapsed since the last start or restart of the device.\n    \n- `boot_id`: the ID of the last device startup or restart. The use case for this identifier is to distinguish whether the energy counter `energy_since_boot` has been cleared and is counting from zero again.\n    \n\n**Example energy grabbing algorithm:**\n\nOn the side of the application reading data from the device, the following variables are needed:\n\n- current_boot_id\n    \n- begin_total_energy\n    \n- total_energy\n    \n\nlet's call the object containing these variables as store.\n\nAlgorithm executed after each reading, the report object is the JSON response from the device:\n\n``` c\nif (stored.current_boot_id != report.boot_id) {\n    stored.begin_total_energy = stored.total_energy;\n    stored.current_boot_id = report.boot_id;\n}\nstored.total_energy = stored.begin_total_energy + report.energy_since_boot;\n\n ```"
+					},
+					"response": [
+						{
+							"name": "Get report",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/report",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"report"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "141"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"power\": 240.67,\n    \"Ws\": 226.89,\n    \"relay\": true,\n    \"temperature\": 25.72,\n    \"boot_id\": \"A425D9AD\",\n    \"energy_since_boot\": 299535913.95,\n    \"time_since_boot\": 2234232\n}"
+						}
+					]
+				},
+				{
+					"name": "Get measured temperature (old path)",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"connection": true,
+							"accept-encoding": true,
+							"user-agent": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/temp",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"temp"
+							]
+						},
+						"description": "Gets more detailed information about the temperature.  \nThe compensation field might initially be wrong, but will automatically correct itself over the span of a few hours.  \nReturns a JSON object with the following fields:\n\n*   `measured`: The measured raw temperature by sensor\n*   `compensation`: How much we have to compensate the raw `measured` data for the cpu heat.\n*   `compensated`: The actual room temperature near the device (i.e. `measured - compensation`)\n*   `offset`*: Local temperature offset, value can be set using API api/v1/settings. This field is available in new firmware versions."
+					},
+					"response": [
+						{
+							"name": "Get measured temperature",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/temp",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"temp"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "70"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"measured\": 43.68,\n    \"compensation\": 18.81,\n    \"compensated\": 24.87,\n    \"offset\": 0\n}"
+						}
+					]
+				},
+				{
+					"name": "Get measured temperature",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"connection": true,
+							"accept-encoding": true,
+							"user-agent": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/api/v1/temperature",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"temperature"
+							]
+						},
+						"description": "Gets more detailed information about the temperature.  \nThe compensation field might initially be wrong, but will automatically correct itself over the span of a few hours.  \nReturns a JSON object with the following fields:\n\n*   `measured`: The measured raw temperature by sensor\n*   `compensation`: How much we have to compensate the raw `measured` data for the cpu heat.\n*   `compensated`: The actual room temperature near the device (i.e. `measured - compensation`)\n*   `offset`*: Local temperature offset, value can be set using API api/v1/settings. This field is available in new firmware versions."
+					},
+					"response": [
+						{
+							"name": "Get measured temperature",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/api/v1/temperature",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"temperature"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "70"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"measured\": 45.18,\n    \"compensation\": 18.56,\n    \"compensated\": 26.62,\n    \"offset\": 0\n}"
+						}
+					]
+				},
+				{
+					"name": "Scan Wifi (deprecated)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{switch_ip}}/networks",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"networks"
+							]
+						},
+						"description": "Scans for nearby wifi networks in a detailed manner. Returns a JSON object where each detected wifi signal is a field. \nFor each detected wifi it returns\n- `name`: The name of the WiFi\n- `signal`: The signal strenght\n- `encryption-on`: Wether or not the wifi signal is encrypted\n- `encryption`: The encryption standard used"
+					},
+					"response": [
+						{
+							"name": "Get Networks",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{switchURL}}/networks",
+									"host": [
+										"{{switchURL}}"
+									],
+									"path": [
+										"networks"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "1605"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"UPC42A3283\": {\n        \"name\": \"UPC42A3283\",\n        \"signal\": 100,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA_WPA2_PSK\"\n    },\n    \"UPC Wi-Free\": {\n        \"name\": \"UPC Wi-Free\",\n        \"signal\": 18,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_ENTERPRISE\"\n    },\n    \"Hadjifi\": {\n        \"name\": \"Hadjifi\",\n        \"signal\": 90,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_PSK\"\n    },\n    \"FRITZ!Box 7490\": {\n        \"name\": \"FRITZ!Box 7490\",\n        \"signal\": 66,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_PSK\"\n    },\n    \"UPC9CE144A\": {\n        \"name\": \"UPC9CE144A\",\n        \"signal\": 22,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA_WPA2_PSK\"\n    },\n    \"WN-C61328_2GEXT\": {\n        \"name\": \"WN-C61328_2GEXT\",\n        \"signal\": 60,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_PSK\"\n    },\n    \"WN-C61328\": {\n        \"name\": \"WN-C61328\",\n        \"signal\": 30,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_PSK\"\n    },\n    \"FRITZ!Box Fon WLAN 7390\": {\n        \"name\": \"FRITZ!Box Fon WLAN 7390\",\n        \"signal\": 22,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA_WPA2_PSK\"\n    },\n    \"UPCBF1B9C2\": {\n        \"name\": \"UPCBF1B9C2\",\n        \"signal\": 20,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA_WPA2_PSK\"\n    },\n    \"DIRECT-76-HP OfficeJet 5200\": {\n        \"name\": \"DIRECT-76-HP OfficeJet 5200\",\n        \"signal\": 18,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_PSK\"\n    },\n    \"ssw-54034\": {\n        \"name\": \"ssw-54034\",\n        \"signal\": 14,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA_WPA2_PSK\"\n    },\n    \"ZyXEL017B76\": {\n        \"name\": \"ZyXEL017B76\",\n        \"signal\": 12,\n        \"encryption-on\": true,\n        \"encryption\": \"WPA2_PSK\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Power cycle",
+					"protocolProfileBehavior": {
+						"followRedirects": false,
+						"disableUrlEncoding": true,
+						"disabledSystemHeaders": {
+							"user-agent": true,
+							"accept-encoding": true,
+							"connection": true
+						}
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/power_cycle?time=10",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"power_cycle"
+							],
+							"query": [
+								{
+									"key": "time",
+									"value": "10",
+									"description": "The value in seconds determines how long to switch off the relay"
+								}
+							]
+						},
+						"description": "Turns the switch off, waits for a specified amount of time (max 1h), then starts it again.\n\nThe switch has to be turned on in order for this call to work.\nWe can send the following parameters:\n- `time`: how long the switch should wait until it should restart [s] (max 3600). "
+					},
+					"response": [
+						{
+							"name": "Power cycle",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/power_cycle?time=10",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"power_cycle"
+									],
+									"query": [
+										{
+											"key": "time",
+											"value": "10",
+											"description": "The value in seconds determines how long to switch off the relay"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "plain",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": null
+						}
+					]
+				},
+				{
+					"name": "Timer",
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"connection": true,
+							"accept-encoding": true,
+							"user-agent": true
+						},
+						"strictSSL": true,
+						"followRedirects": false,
+						"disableUrlEncoding": true
+					},
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://{{switch_ip}}/timer?mode=on&time=5",
+							"protocol": "http",
+							"host": [
+								"{{switch_ip}}"
+							],
+							"path": [
+								"timer"
+							],
+							"query": [
+								{
+									"key": "mode",
+									"value": "on",
+									"description": "The state of the relay that will be set after calling the resource. The set state will be maintained for the time specified by the parameter."
+								},
+								{
+									"key": "time",
+									"value": "5",
+									"description": "Time in seconds after which the action will be performed"
+								}
+							]
+						},
+						"description": "It sets the relay state for a given time, after the time has elapsed the state of the relay is reversed.\n\nThe resource accepts the following parameters that can be passed as part of the query or as the body of the message\n\n*   `mode`:\n    *   `on`: Turns the switch on (if it is not already), waits for specified time and turns the switch off again\n    *   `off`: Turns the switch off (if it is not already), waits for specified time and turns the switch on again\n    *   `toggle`: Toggles the switch, waits for specified time and toggles the switch on again\n    *   `none`: Cancel previously planned action\n*   `time`: Time in seconds after which the action will be performed (max 3600)."
+					},
+					"response": [
+						{
+							"name": "Timer",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "http://{{switch_ip}}/timer?mode=on&time=5",
+									"protocol": "http",
+									"host": [
+										"{{switch_ip}}"
+									],
+									"path": [
+										"timer"
+									],
+									"query": [
+										{
+											"key": "mode",
+											"value": "on",
+											"description": "The state of the relay that will be set after calling the resource. The set state will be maintained for the time specified by the parameter."
+										},
+										{
+											"key": "time",
+											"value": "5",
+											"description": "Time in seconds after which the action will be performed"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "plain",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": null
+						}
+					]
+				}
+			],
+			"description": "Requests specific to myStrom Switch EU and CH devices. \n\n",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "myStrom Button & Button+",
+			"item": [
+				{
+					"name": "Set Button actions",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "post://192.168.1.192:9090?key=value=key2=value2"
+						},
+						"url": {
+							"raw": "http://{{buttonURL}}/api/v1/action/single",
+							"protocol": "http",
+							"host": [
+								"{{buttonURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"action",
+								"single"
+							]
+						},
+						"description": "### General Actions\nThe URL has the form `/api/v1/action/<ENUM single|double|long|generic>`\n\nWe set each button action by simply providing the interaction type (single, double, long or touch) and what kind of request we want to happen upon that interaction.\n\nWe introduce an unconventional way to specify what kind of request the button should execute. \nA url of form `post://` will execute a post request and one of form `get://` will execute a get request. Requests of form `put://` and `delete://` can also be used for PUT and DELETE requests respectively.\n\nIn the first postman example we set the single click action to send a post request to 192.168.1.153 on port 9090 with data \"key=value\" and \"key2=value2\"\n\nIn the second postman example we set the double click action to send a get request to 192.168.1.153 on port 9090\n\n\nWe will not get a return value.\n\n### Advanced Feautres\n\nImplemented in Firmware version: 2.74.10\n#### Multiple actions \nThe buttons can execute multiple actions after each other. Between every two actions we put \"||\" to show the end of the first action and the start of a new one.\nThe number of actions we can set is limited! The number of characters of the entire string that we write to a specific action (i.e. the length of all actions including vertical delimiters) has to be smaller than 800 characters.\n\nExample: post://192.168.1.42?key=value||get://192.168.1.173\n\n### Generic Action\nGeneric URL are called for all actions, the callback appends some additional parameters to the request URL which describe the action that just occured.\n\nThe Wheel action is triggered when touching the Button+ and performing a circular motion on the touch surface.\n\nIn addition, this action is called automatically every twelve hours, which allows you to receive  the battery status of the button.\n\n|Name        | Type      |Range|Given|Comments|\n| :------------- | :------------- |:------------- | :------------- |:------------- |\n|mac   |MAC   |   | yes  |   |\n|action   | ENUM  |SINGLE = 1 <br> DOUBLE=2 <br> LONG=3<br> TOUCH=4<br> WHEEL=5<br> WHEEL_FINAL=11<br> BATTERY=6   |   yes|   |\n|wheel   |INT   |-127...127   |no   |  Only in action WHEEL case |\n|battery   | INT   |  0..100 |yes   |  In percent |\n\n**Example:**\n\nIf the generic field on the Button is set to:\n`get://192.168.1.144:8787/gen`\n\nthen the HTTP server running on 192.168.1.144:8787 will receive GET requests that looks similar to\n\n`/gen?mac=18FE34CD9201&action=3&battery=60`\n\nOR\n\n`/gen?mac=18FE34CD9201&action=5&wheel=38&battery=60`"
+					},
+					"response": [
+						{
+							"name": "Set Button single action",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "post://192.168.1.153:9090?key=value&key2=value2"
+								},
+								"url": {
+									"raw": "http://{{buttonURL}}/api/v1/action/single",
+									"protocol": "http",
+									"host": [
+										"{{buttonURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"single"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "Set Button double action",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "get://192.168.1.153:9090/foo"
+								},
+								"url": {
+									"raw": "http://{{buttonURL}}/api/v1/action/double",
+									"protocol": "http",
+									"host": [
+										"{{buttonURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"double"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "Get device specific information",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{buttonURL}}/api/v1/device",
+							"protocol": "http",
+							"host": [
+								"{{buttonURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"device"
+							]
+						},
+						"description": "Returns device specific information. Returns a JSON object with only the mac address (without delimiters) as its field. This field however contains the following data:\n\n- `type`: The type of the device (buttonplus = wheel)\n- `battery`: Wether or not the devices is using batteries\n- `reachable`: Wether or not the device is connected to a myStrom account\n- `meshroot`: Wether or not the device is in a mesh (?)\n- `voltage`: Current voltage of the button\n- `single`: http request executed when pressing the button once\n- `double`: http request executed when pressing the button twice\n- `long`: http request executed when pressing the button long\n- `touch`: http request executed when touching the button (only used for Button+)\n- `generic`: http request execute in case of any action on button. Button add additional fields to the assigned address to identify the action. In addition, this action is called automatically every twelve hours, which allows you to receive  the battery status of the button. (Useful for bridges or servers)\n- `fw_version`: The firmware version of the Button"
+					},
+					"response": [
+						{
+							"name": "{{buttonURL}}/api/v1/device",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{buttonURL}}/api/v1/device",
+									"host": [
+										"{{buttonURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"device"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "365"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"5CCF7F0CC7E3\": {\n        \"type\": \"wheel\",\n        \"battery\": true,\n        \"reachable\": true,\n        \"meshroot\": false,\n        \"charge\": false,\n        \"voltage\": 4.523,\n        \"fw_version\": \"2.73.0\",\n        \"single\": \"post://192.168.1.153:9090?key%3Dvalue2%26key2%3Dvalue2\",\n        \"double\": \"get://192.168.1.153:9090/foo\",\n        \"long\": \"\",\n        \"touch\": \"\",\n        \"generic\": \"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get request used for interaction",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{buttonURL}}/api/v1/action/single",
+							"protocol": "http",
+							"host": [
+								"{{buttonURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"action",
+								"single"
+							]
+						},
+						"description": "URL of form `http://<IP>/api/v1/action/<ENUM single|double|long|generic>`\n\nReturns the currently assigned action for the specified interaction with the button."
+					},
+					"response": [
+						{
+							"name": "Get request used for interaction",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{buttonURL}}/api/v1/action/single",
+									"protocol": "http",
+									"host": [
+										"{{buttonURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"single"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "65"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"url\": \"post://192.168.1.153:9090?key=value&key2=value2\"\n}"
+						}
+					]
+				}
+			],
+			"description": "All request specific to the myStrom Button and Button+.\n\nWe interact with both types in the exact same way, however with the standard Button we can not execute a touch, thus the field `touch` is meaningless for the standard button.\n\n### Calling feedback:\n\nWhen the button executes a http request, it will blink according the returned status code. For 200 it will blink green and for any other response code or if the request has timed out it will blink red.\n\n### Actions priorities:\nSince the button can execute multiple action when it is pressed we need to specify an order in which these requests take place (e.g. It can call the myStrom server and additionally execute a http request that has been programmed manually). The order is as follows:\n\n1. Call myStrom server (If the button is registered to a myStrom account)\n2. Manually set action (i.e. requests shown in the single, double, long or touch field)\n3. Generic action (i.e. the action shown in the generic field)",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "myStrom Bulb",
+			"item": [
+				{
+					"name": "Turn on",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "action",
+									"value": "on",
+									"description": "The action we want to take (`on`,`off` or `toggle`)",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+							"protocol": "http",
+							"host": [
+								"{{bulbURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"device",
+								"{{bulbMAC}}"
+							]
+						},
+						"description": "Turns the bulb on. \n\nReturns a JSON object with the mac address (without delimiters) as its only field. The mac field however has the following fields:\n- `on`: wether or not the bulb is now turned on (after the request has been executed)\n- `color`: The current color\n- `mode`: The color mode the bulb is currently set to\n- `ramp`: Transition time from the light’s current state to the new state. [ms]\n- `notifyurl`: Once defined the bulb will send POST request to that URL whenever its state changes"
+					},
+					"response": [
+						{
+							"name": "Turn on",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "urlencoded",
+									"urlencoded": [
+										{
+											"key": "action",
+											"value": "on",
+											"description": "The action we want to take (either `on` or `off`)",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+									"protocol": "http",
+									"host": [
+										"{{bulbURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"device",
+										"{{bulbMAC}}"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "121"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"6001942C4FDD\": {\n        \"on\": true,\n        \"color\": \"46;18;100\",\n        \"mode\": \"hsv\",\n        \"ramp\": 10,\n        \"notifyurl\": \"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Toggle",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "action",
+									"value": "toggle",
+									"description": "The action we want to take (`on`,`off` or `toggle`)",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+							"protocol": "http",
+							"host": [
+								"{{bulbURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"device",
+								"{{bulbMAC}}"
+							]
+						},
+						"description": "Toggles the bulb. \n\nReturns a JSON object with the mac address (without delimiters) as its only field. The mac field however has the following fields:\n- `on`: wether or not the bulb is now turned on (after the request has been executed)\n- `color`: The current color\n- `mode`: The color mode the bulb is currently set to\n- `ramp`: Transition time from the light’s current state to the new state. [ms]\n- `notifyurl`: Once defined the bulb will send POST request to that URL whenever its state changes"
+					},
+					"response": [
+						{
+							"name": "Turn on",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "urlencoded",
+									"urlencoded": [
+										{
+											"key": "action",
+											"value": "on",
+											"description": "The action we want to take (either `on` or `off`)",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+									"protocol": "http",
+									"host": [
+										"{{bulbURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"device",
+										"{{bulbMAC}}"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "121"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"6001942C4FDD\": {\n        \"on\": true,\n        \"color\": \"46;18;100\",\n        \"mode\": \"hsv\",\n        \"ramp\": 10,\n        \"notifyurl\": \"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Turn off",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "action",
+									"value": "off",
+									"description": "The action we want to take (`on`,`off` or `toggle`)",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+							"protocol": "http",
+							"host": [
+								"{{bulbURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"device",
+								"{{bulbMAC}}"
+							]
+						},
+						"description": "Turns the bulb off. \n\nReturns a JSON object with the mac address (without delimiters) as its only field. The mac field however has the following fields:\n- `on`: wether or not the bulb is now turned on (after the request has been executed)\n- `color`: The current color\n- `mode`: The color mode the bulb is currently set to\n- `ramp`: Transition time from the light’s current state to the new state. [ms]\n- `notifyurl`: Once defined the bulb will send POST request to that URL whenever its state changes"
+					},
+					"response": [
+						{
+							"name": "Turn on Copy",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "urlencoded",
+									"urlencoded": [
+										{
+											"key": "action",
+											"value": "off",
+											"description": "The action we want to take (either `on` or `off`)",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+									"protocol": "http",
+									"host": [
+										"{{bulbURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"device",
+										"{{bulbMAC}}"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "122"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"6001942C4FDD\": {\n        \"on\": false,\n        \"color\": \"46;18;100\",\n        \"mode\": \"hsv\",\n        \"ramp\": 10,\n        \"notifyurl\": \"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Set color",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"name": "Content-Type",
+								"value": "application/x-www-form-urlencoded",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "color=0;100;50&mode=hsv&action=on&ramp=20"
+						},
+						"url": {
+							"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+							"protocol": "http",
+							"host": [
+								"{{bulbURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"device",
+								"{{bulbMAC}}"
+							]
+						},
+						"description": "Set the bulb to a specified color. Color can be either in hsv or in RGBW. We can send the following parameters:\n\n- `action`: If we want to turn the bulb on or off \n- `color`: The color we set the bulb to (When using RGBW mode the first two hex numbers are used for the white channel! hsv is of form `<UINT 0..360>;<UINT 0..100>;<UINT 0..100>`)\n- `ramp`: Transition time from the light’s current state to the new state. [ms]\n- `mode`: The color mode we want the Bulb to set to (rgb or hsv)\n- `notifyurl`: Once defined the bulb will send POST request to that URL whenever its state changes"
+					},
+					"response": [
+						{
+							"name": "Set color",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "urlencoded",
+									"urlencoded": [
+										{
+											"key": "color",
+											"value": "00FF0000",
+											"type": "text"
+										},
+										{
+											"key": "action",
+											"value": "on",
+											"type": "text"
+										},
+										{
+											"key": "ramp",
+											"value": "100",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "http://{{bulbURL}}/api/v1/device/{{bulbMAC}}",
+									"protocol": "http",
+									"host": [
+										"{{bulbURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"device",
+										"{{bulbMAC}}"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "122"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"6001942C4FDD\": {\n        \"on\": true,\n        \"color\": \"FFFF0000\",\n        \"mode\": \"rgb\",\n        \"ramp\": 1023,\n        \"notifyurl\": \"\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get device specific information",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://{{bulbURL}}/api/v1/device",
+							"protocol": "http",
+							"host": [
+								"{{bulbURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"device"
+							]
+						},
+						"description": "Returns device specific information. Returns a JSON object with only the mac address (without delimiters) as its field. This field however contains the following data:\n\n- `type`: The type of the device\n- `battery`: Wether or not the devices is using batteries\n- `reachable`: Wether or not the device is connected to a myStrom account\n- `meshroot`: DEPRECATED\n- `on`: Wether or not the bulb is currently turned on\n- `color`: The current color\n- `mode`: The color mode the bulb is currently set to\n- `ramp`: How quickly the bulb changes its its color\n- `power`: The power consumed by the bulb\n- `fw_version`: The firmware version of the bulb"
+					},
+					"response": [
+						{
+							"name": "{{bulbURL}}/api/v1/device",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{bulbURL}}/api/v1/device",
+									"host": [
+										"{{bulbURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"device"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "198"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"6001942C4FDD\": {\n        \"type\": \"rgblamp\",\n        \"battery\": false,\n        \"reachable\": true,\n        \"meshroot\": true,\n        \"on\": false,\n        \"color\": \"46;18;100\",\n        \"mode\": \"hsv\",\n        \"ramp\": 10,\n        \"power\": 0.45,\n        \"fw_version\": \"2.58.0\"\n    }\n}"
+						}
+					]
+				}
+			],
+			"description": "All request specific to the myStrom Bulb.\nAll these request also work on the LED strip.",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "myStrom LED strip",
+			"item": [
+				{
+					"name": "Set Light Effects",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "[\r\n\t{\r\n\t\t\"color\": \"0;100;50\",\r\n\t\t\"ramp\": 1000,\r\n\t\t\"time\": 1\r\n\t},\r\n\t\t{\r\n\t\t\"color\": \"FF000000\",\r\n\t\t\"ramp\": 1000,\r\n\t\t\"time\": 1\r\n\t}\r\n\t\r\n]"
+						},
+						"url": {
+							"raw": "http://{{stripURL}}/api/v1/effect/set/0",
+							"protocol": "http",
+							"host": [
+								"{{stripURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"effect",
+								"set",
+								"0"
+							]
+						},
+						"description": "You can specify a list of light effects the LED strip will go through. In this way you can make the LED strip blink or loop through different colors.\n\nThe last number of the URL specifies as which effect we want to save our new effect.\nTo specify the effect pass a JSON array where every object in this array consists of 3 value namely:\n\n- `color`: The color we want to set the light strip to can be either in hsv or RGBW format\n- `ramp`: How quickly to set the led strip to the specified color [ms]\n- `time`: How long we wait until we start the next request [s]\n\t- If you do not want to interrupt the color ramp up this time has to be bigger or equal than ramp value i.e. bigger or equal than `ramp`/1000"
+					},
+					"response": [
+						{
+							"name": "Set Light Effects",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "[\r\n\t{\r\n\t\t\"color\": \"0;100;50\",\r\n\t\t\"ramp\": 1000,\r\n\t\t\"time\": 1\r\n\t},\r\n\t\t{\r\n\t\t\"color\": \"FF000000\",\r\n\t\t\"ramp\": 1000,\r\n\t\t\"time\": 1\r\n\t}\r\n\t\r\n]"
+								},
+								"url": {
+									"raw": "{{stripURL}}/api/v1/effect/set/0",
+									"host": [
+										"{{stripURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"effect",
+										"set",
+										"0"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "Start Light Effect",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://{{stripURL}}/api/v1/effect/start/0",
+							"protocol": "http",
+							"host": [
+								"{{stripURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"effect",
+								"start",
+								"0"
+							]
+						},
+						"description": "Starts the light effect. You need to set the light effect first by using the request listed above. \nDoes not return anything.\n\nThe last number indicates which effect we are starting."
+					},
+					"response": [
+						{
+							"name": "Start Light Effect",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "http://{{stripURL}}/api/v1/effect/start/0",
+									"protocol": "http",
+									"host": [
+										"{{stripURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"effect",
+										"start",
+										"0"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				},
+				{
+					"name": "Stop Light effect",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "http://{{stripURL}}/api/v1/effect/stop",
+							"protocol": "http",
+							"host": [
+								"{{stripURL}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"effect",
+								"stop"
+							]
+						},
+						"description": "Stops any currently ongoing light effect."
+					},
+					"response": [
+						{
+							"name": "Stop Light effect",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": ""
+								},
+								"url": {
+									"raw": "http://{{stripURL}}/api/v1/effect/stop",
+									"protocol": "http",
+									"host": [
+										"{{stripURL}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"effect",
+										"stop"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Pragma",
+									"value": "no-cache"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-store, no-cache"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Content-Length",
+									"value": "0"
+								},
+								{
+									"key": "Connection",
+									"value": "close"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				}
+			],
+			"description": "All request specific to the myStrom LED strip.\n\nAll the Bulbs request also work on the LED strip. See the documentation of the bulb to see further requests.",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "myStrom PIR",
+			"item": [
+				{
+					"name": "Actions",
+					"item": [
+						{
+							"name": "Get all assigned actions",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/action",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Example result of get all assigned actions example",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/action",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"action"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "106"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Access-Control-Allow-Origin",
+											"value": "*"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"pir\": {\n        \"generic\": \"\",\n        \"night\": \"\",\n        \"twilight\": \"\",\n        \"day\": \"\",\n        \"rise\": \"\",\n        \"fall\": \"\"\n    }\n}"
+								}
+							]
+						},
+						{
+							"name": "Get assignment for a selected action",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/action/pir/<generic|night|twilight|day|rise|fall>",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"pir",
+										"<generic|night|twilight|day|rise|fall>"
+									]
+								},
+								"description": "It allows you to get the address of a specific action\r\n\r\nThe last path parameter should take one of the following values: <ENUM generic | dark | bright | ultra_bright | rise | fall>"
+							},
+							"response": []
+						},
+						{
+							"name": "Setting the assignment for the selected action",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/action/pir/<generic|night|twilight|day|rise|fall>",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"pir",
+										"<generic|night|twilight|day|rise|fall>"
+									]
+								},
+								"description": "Allows you to set the address of the query to be performed for a specific action. The last path parameter should take one of the following values: <ENUM generic | dark | bright | ultra_bright | rise | fall>"
+							},
+							"response": []
+						}
+					],
+					"description": "Actions allow you to make an HTTP request on a remote host. The action will be performed after motion detection. PIR allows you to define different URLs for specific lighting levels, motion detection start and end. It is also possible to set the general action performed for all events.\r\n\r\nThe HTTP client on the device allows you to perform 4 methods of HTTP requests: GET, POST, PUT and DELETE.\r\n\r\nIn the definition of the address of the remote host (to which the request is to be sent) instead of the http scheme set get, post, put or delete depending on what HTTP method you want to perform the query.\r\n\r\nGeneric action URL syntax:\r\n\r\n```\r\naction_url := <get|post|put|delete>://[user:password@]host[:port][/path[?query]]\r\n```\r\n\r\nIn the case of a generic action, additional query parameters are added in addition to those defined in the action address.\r\n\r\n```\r\nquery := query<?|&>mac=<device_mac>&action=<numeric>&value=<light_value>\r\n```\r\n\r\n| Name   | Type | Range                                                    | Comments                    |\r\n| ------ | ---- | -------------------------------------------------------- | --------------------------- |\r\n| mac    | MAC  |                                                          | MAC address of PIR device   |\r\n| action | enum | RISE=8<br/>FALL=9<br/>NIGHT=14<br/>TWILIGHT=15<br/>DAY=16 | action type given as number |\r\n| value  | uint | 0..65535                                                 | light intensity             |\r\n\r\nGet/Set actions URLs generic syntax:\r\n\r\n```\r\nGET api/v1/action\r\n\r\nGET api/v1/action/pir/<ENUM generic|night|twilight|day|rise|fall>\r\n\r\nPOST api/v1/action/pir/<ENUM generic|night|twilight|day|rise|fall>\r\n```\r\n\r\nSuppose we want to perform a POST action on a remote host at the start of violation event:\r\n\r\n```\r\ntarget_ip := IP address or hostname of remote host (HTTP server)\r\n\r\ndevice_ip := local IP address of PIR device\r\n```\r\n\r\nSuppose that on a remote host we define the path where events are to be sent:\r\n\r\n```\r\n/event/pir?id=1\r\n```\r\n\r\nThen action URL set on PIR device should look like:\r\n\r\n```\r\npost://<target_ip>/event/pir?id=1\r\n```\r\n\r\ntaget_ip variable should be replace before action will be set.\r\n\r\nIf we have action URL then we can attach it:\r\n\r\n```\r\ncurl -d \"post://<target_ip>/event/pir?id=1\" http://<device_ip>/api/v1/action/pir/rise\r\n```\r\n\r\nNow if motion will be detected PIR device send HTTP request to remote host. Request will be sent as POST with content type application/x-www-form-urlencoded. So, body include id=1.\r\n\r\nIn same way other action can be attached.\r\n\r\n#### Description in which cases the action will be performed\r\n\r\n| Name         | Description                                                  |\r\n| ------------ | ------------------------------------------------------------ |\r\n| generic      | Call in any motion event independent of light intensity.     |\r\n| night        | Call only if light value is bellow night threshold           |\r\n| twilight     | Call only if light value is bellow day threshold and above night threshold |\r\n| day          | Call only if light value is above day threshold |\r\n| rise         | Call always on start motion violation independent of light value. This action |\r\n| fall         | Call always on end of motion violation independent of light value. This action will be called if backoff_time elapse |\r\n\r\nActions will not be performed more often than every backoff_time. If the next violation occurs during backoff then the time will be extended, and the action will not be performed.\r\n\r\n#### Features from version 3.82.45\r\n\r\n- the actions support the http:// schema. Use of the http:// schema will execute the POST method,\r\n- the actions support HTTPS requests. Add the letter s at the end of the protocol prefix (posts, gets, puts, deletes, https),\r\n- the actions support multi requests for action, separate the actions URLs with ||,\r\n- the actions recognize the type of content of request from URL syntax: end URL with ?a=1 then content type will application/x-www-form-urlencoded, end with ?{\"a\":1} then content type will application/json, end with ?some_string then content type will text/plain,\r\n- the action definition limit is extended to 767 chars.\r\n\r\n#### Example\r\n\r\nTurn on the myStrom WiFi bulb if motion is detected.\r\n\r\nAssumptions:\r\n\r\n- the PIR IP address is 192.168.1.110 (please replace)\r\n- the Bulb IP address is 192.168.1.120 (please replace)\r\n\r\nThe actions configuration:\r\n\r\n```\r\n# for turn on the bulb if motion detected\r\ncurl -d \"post://192.168.1.120/api/v1/device/self?action=on\" http://192.168.1.110/api/v1/action/pir/rise\r\n# for turn off the bulb on end of motion\r\ncurl -d \"post://192.168.1.120/api/v1/device/self?action=off\" http://192.168.1.110/api/v1/action/pir/fall\r\n```\r\n\r\nImportant mention. The motion fall event will only be executed when there is no motion and the backoff_time has expired. So you can adjust the light bulb on time with the backoff_time parameter.\r\n\r\n",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									""
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									""
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Sensors",
+					"item": [
+						{
+							"name": "Get values from all sensors",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/sensors",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"sensors"
+									]
+								},
+								"description": "Returns measurements from all sensors in a simplified formation. This API is recommended if you plan to read data periodically from the device.\r\n\r\n| Name        | Type | Description                                                  |\r\n| ----------- | ---- | ------------------------------------------------------------ |\r\n| motion      | bool | true if motion is detected now                               |\r\n| light       | uint | value of light, this field must not be presented in response, if light was not measured at least once because LED is turn on this value will not be present in the result |\r\n| temperature | real | value of ambient temperature                                 |"
+							},
+							"response": [
+								{
+									"name": "Example of get values from all sensors",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/sensors",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"sensors"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "70"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Access-Control-Allow-Origin",
+											"value": "*"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"motion\": false,\n  \"light\": 84,\n  \"temperature\": 23.25\n}"
+								}
+							]
+						},
+						{
+							"name": "Get light value",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/light",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"light"
+									]
+								},
+								"description": "It allows reading data from a light sensor. In addition to lighting intensity, information is also provided about whether the reader recognizes the lighting level as night or day. In addition, the inquiry also provides information about the amount of infrared light. The success field in response will be set to false if no measurements have been taken yet (the device has been restarted and the LED is on).\r\n\r\n| Name      | Type | Description                                                  |\r\n| --------- | ---- | ------------------------------------------------------------ |\r\n| success   | bool | read light value operation status, if true then light sensor response properly |\r\n| intensity | uint | value of light intensity                                     |\r\n| day       | bool | day/night information based on set thresholds                |\r\n| raw.adc0  | uint | raw value of visible light from ADC                          |\r\n| raw.adc1  | uint | raw value of infrared light from ADC                         |"
+							},
+							"response": [
+								{
+									"name": "Example of get light value",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/light",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"light"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "93"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Access-Control-Allow-Origin",
+											"value": "*"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"success\": true,\n    \"intensity\": 11,\n    \"day\": false,\n    \"raw\": {\n        \"adc0\": 11,\n        \"adc1\": 1\n    }\n}"
+								}
+							]
+						},
+						{
+							"name": "Get motion status",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/motion",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"motion"
+									]
+								},
+								"description": "The motion field will be set to true if motion is detected is still present or the backoff time has not expired.\r\n\r\n| Name    | Type | Description                              |\r\n| ------- | ---- | ---------------------------------------- |\r\n| success | bool | status of read motion operation          |\r\n| motion  | bool | true if motion is detected, false if not |"
+							},
+							"response": [
+								{
+									"name": "Example of get motion status",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/motion",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"motion"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "31"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Access-Control-Allow-Origin",
+											"value": "*"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"success\": true,\n    \"motion\": false\n}"
+								}
+							]
+						},
+						{
+							"name": "Get temperature",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/api/v1/temperature",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"temperature"
+									]
+								},
+								"description": "It allows you to read detailed information about the temperature measured and compensated by the device. Because the temperature sensor is inside the device, a static offset and a special algorithm simulating the heat capacity and thermal resistance of the device is used.\r\n\r\n| Name         | Type | Description                                                  |\r\n| ------------ | ---- | ------------------------------------------------------------ |\r\n| measured     | real | raw value of temperature measured by internal sensor         |\r\n| compensation | real | temperature compensation coefficient                         |\r\n| compensated  | real | compensated value of temperature the approximation of real ambient temperature |"
+							},
+							"response": [
+								{
+									"name": "Example of get temperature",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/temp",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"temp"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "86"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Access-Control-Allow-Origin",
+											"value": "*"
+										}
+									],
+									"cookie": [],
+									"body": "{\n  \"measured\": 45.68,\n  \"compensation\": 22.43,\n  \"compensated\": 23.25,\n  \"offset\": 0\n}"
+								}
+							]
+						},
+						{
+							"name": "Get temperature (old API form)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{pir_ip}}/temp",
+									"protocol": "http",
+									"host": [
+										"{{pir_ip}}"
+									],
+									"path": [
+										"temp"
+									]
+								},
+								"description": "It allows you to read detailed information about the temperature measured and compensated by the device. Because the temperature sensor is inside the device, a static offset and a special algorithm simulating the heat capacity and thermal resistance of the device is used.\r\n\r\n| Name         | Type | Description                                                  |\r\n| ------------ | ---- | ------------------------------------------------------------ |\r\n| measured     | real | raw value of temperature measured by internal sensor         |\r\n| compensation | real | temperature compensation coefficient                         |\r\n| compensated  | real | compensated value of temperature the approximation of real ambient temperature |"
+							},
+							"response": [
+								{
+									"name": "Example of get temperature (old API form)",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/temp",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"temp"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "86"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										},
+										{
+											"key": "Access-Control-Allow-Origin",
+											"value": "*"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"measured\": 34.625,\n    \"compensation\": 9.3999996185302734,\n    \"compensated\": 25.225000381469727\n}"
+								}
+							]
+						}
+					]
+				},
+				{
+					"name": "Motion Sensor specific settings",
+					"item": [
+						{
+							"name": "Settings for light thresholds",
+							"item": [
+								{
+									"name": "Get light thresholds",
+									"request": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/settings/pir/thresholds",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings",
+												"pir",
+												"thresholds"
+											]
+										},
+										"description": "Returns the illumination thresholds in JSON format. The response content type is application/json."
+									},
+									"response": [
+										{
+											"name": "Get light thresholds",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "http://{{pir_ip}}/api/v1/settings/pir/thresholds",
+													"protocol": "http",
+													"host": [
+														"{{pir_ip}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"settings",
+														"pir",
+														"thresholds"
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												},
+												{
+													"key": "Content-Length",
+													"value": "22"
+												},
+												{
+													"key": "Pragma",
+													"value": "no-cache"
+												},
+												{
+													"key": "Cache-Control",
+													"value": "no-store, no-cache"
+												},
+												{
+													"key": "Connection",
+													"value": "close"
+												}
+											],
+											"cookie": [],
+											"body": "{\n    \"night\": 30,\n    \"day\": 100\n}"
+										}
+									]
+								},
+								{
+									"name": "Set light thresholds",
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"night\": 30,\r\n    \"day\": 200\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/settings/pir/thresholds",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings",
+												"pir",
+												"thresholds"
+											]
+										},
+										"description": "It allows you to change the threshold of illuminance. The body of the message should contain the JSON object in the format as in the reply. In case of success HTTP OK 200 is returned."
+									},
+									"response": [
+										{
+											"name": "Set light thresholds",
+											"originalRequest": {
+												"method": "POST",
+												"header": [],
+												"body": {
+													"mode": "raw",
+													"raw": "{\r\n    \"night\": 30,\r\n    \"day\": 200\r\n}",
+													"options": {
+														"raw": {
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "http://{{pir_ip}}/api/v1/settings/pir/thresholds",
+													"protocol": "http",
+													"host": [
+														"{{pir_ip}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"settings",
+														"pir",
+														"thresholds"
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												},
+												{
+													"key": "Content-Length",
+													"value": "22"
+												},
+												{
+													"key": "Pragma",
+													"value": "no-cache"
+												},
+												{
+													"key": "Cache-Control",
+													"value": "no-store, no-cache"
+												},
+												{
+													"key": "Connection",
+													"value": "close"
+												}
+											],
+											"cookie": [],
+											"body": "{\n    \"night\": 30,\n    \"day\": 200\n}"
+										}
+									]
+								}
+							],
+							"description": "It allows you to read and change the brightness thresholds. They are mainly used in the decision-making process when reporting actions.\r\n\r\n| Name         | Type | Range    | Default | Required | Description                                                  |\r\n| ------------ | ---- | -------- | ------- | -------- | ------------------------------------------------------------ |\r\n| night        | uint | 0..65535 | 30      | yes      | sets the threshold below which motion detection will be reported for the night event |\r\n| day          | uint | 0..65535 | 300     | yes      | sets the threshold above which motion detection will be reported for the day event |\r\n\r\nIf light value is between day and night level, then motion event is reported as twilight event. The day value should be greater than night value.",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											""
+										]
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											""
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "Settings for motion",
+							"item": [
+								{
+									"name": "Get settings for motion",
+									"request": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/settings/pir",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings",
+												"pir"
+											]
+										},
+										"description": "Returns the motion settings in JSON format. The response content type is application/json."
+									},
+									"response": [
+										{
+											"name": "Get settings for motion",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "http://{{pir_ip}}/api/v1/settings/pir",
+													"protocol": "http",
+													"host": [
+														"{{pir_ip}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"settings",
+														"pir"
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												},
+												{
+													"key": "Content-Length",
+													"value": "37"
+												},
+												{
+													"key": "Pragma",
+													"value": "no-cache"
+												},
+												{
+													"key": "Cache-Control",
+													"value": "no-store, no-cache"
+												},
+												{
+													"key": "Connection",
+													"value": "close"
+												}
+											],
+											"cookie": [],
+											"body": "{\n    \"backoff_time\": 30,\n    \"led_enable\": true\n}"
+										}
+									]
+								},
+								{
+									"name": "Set settings for motion",
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"backoff_time\": 15,\r\n    \"led_enable\": true\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/settings/pir",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings",
+												"pir"
+											]
+										},
+										"description": "It allows you to change the motion settings. The body of the message should contain the JSON object in the format as in the reply. In case of success HTTP OK 200 is returned."
+									},
+									"response": [
+										{
+											"name": "Set settings for motion",
+											"originalRequest": {
+												"method": "POST",
+												"header": [],
+												"body": {
+													"mode": "raw",
+													"raw": "{\r\n    \"backoff_time\": 15,\r\n    \"led_enable\": true\r\n}",
+													"options": {
+														"raw": {
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "http://{{pir_ip}}/api/v1/settings/pir",
+													"protocol": "http",
+													"host": [
+														"{{pir_ip}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"settings",
+														"pir"
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												},
+												{
+													"key": "Content-Length",
+													"value": "37"
+												},
+												{
+													"key": "Pragma",
+													"value": "no-cache"
+												},
+												{
+													"key": "Cache-Control",
+													"value": "no-store, no-cache"
+												},
+												{
+													"key": "Connection",
+													"value": "close"
+												}
+											],
+											"cookie": [],
+											"body": "{\n    \"backoff_time\": 15,\n    \"led_enable\": true\n}"
+										}
+									]
+								}
+							],
+							"description": "It allows you to update and change the parameters specific to a PIR device.\r\n\r\n| Name         | Type | Range    | Default | Required | Description                                                  |\r\n| ------------ | ---- | -------- | ------- | -------- | ------------------------------------------------------------ |\r\n| backoff_time | uint | 1..84600 | 10      | no       | defines the minimum frequency between successive motion detections. If motion is detected during this period, this time is extended by the defined value without another motion event notification. Units are seconds |\r\n| led_enable   | bool |          | true    | no       | whether the LED should indicate motion detection             |",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											""
+										]
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											""
+										]
+									}
+								}
+							]
+						},
+						{
+							"name": "Other settings",
+							"item": [
+								{
+									"name": "Get common settings",
+									"request": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/settings",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings"
+											]
+										},
+										"description": "Returns the HTTP server settings in JSON format. The response content type is application/json."
+									},
+									"response": [
+										{
+											"name": "Get common settings",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "http://{{pir_ip}}/api/v1/settings",
+													"protocol": "http",
+													"host": [
+														"{{pir_ip}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"settings"
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												},
+												{
+													"key": "Content-Length",
+													"value": "73"
+												},
+												{
+													"key": "Pragma",
+													"value": "no-cache"
+												},
+												{
+													"key": "Cache-Control",
+													"value": "no-store, no-cache"
+												},
+												{
+													"key": "Connection",
+													"value": "close"
+												}
+											],
+											"cookie": [],
+											"body": "{\n    \"rest\": true,\n    \"panel\": true,\n    \"hap_disable\": false,\n    \"name\": \"\",\n    \"temp_offset\": -1\n}"
+										}
+									]
+								},
+								{
+									"name": "Set common settings",
+									"request": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\r\n    \"rest\": true,\r\n    \"panel\": true,\r\n    \"name\": \"\",\r\n    \"temp_offset\": -2\r\n}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "http://{{pir_ip}}/api/v1/settings",
+											"protocol": "http",
+											"host": [
+												"{{pir_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings"
+											]
+										},
+										"description": "It allows you to change the HTTP server settings. The body of the message should contain the JSON object in the format as in the reply. In case of success HTTP OK 200 is returned."
+									},
+									"response": [
+										{
+											"name": "Set common settings",
+											"originalRequest": {
+												"method": "POST",
+												"header": [],
+												"body": {
+													"mode": "raw",
+													"raw": "{\r\n    \"rest\": true,\r\n    \"panel\": true,\r\n    \"name\": \"\",\r\n    \"temp_offset\": -2\r\n}",
+													"options": {
+														"raw": {
+															"language": "json"
+														}
+													}
+												},
+												"url": {
+													"raw": "http://{{pir_ip}}/api/v1/settings",
+													"protocol": "http",
+													"host": [
+														"{{pir_ip}}"
+													],
+													"path": [
+														"api",
+														"v1",
+														"settings"
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												},
+												{
+													"key": "Content-Length",
+													"value": "73"
+												},
+												{
+													"key": "Pragma",
+													"value": "no-cache"
+												},
+												{
+													"key": "Cache-Control",
+													"value": "no-store, no-cache"
+												},
+												{
+													"key": "Connection",
+													"value": "close"
+												}
+											],
+											"cookie": [],
+											"body": "{\n    \"rest\": true,\n    \"panel\": true,\n    \"hap_disable\": false,\n    \"name\": \"\",\n    \"temp_offset\": -2\n}"
+										}
+									]
+								}
+							],
+							"description": "It allows you to read and change mainly the parameters of the internal HTTP server\n\n| Name | Type | Range | Default | Required | Description |\n| --- | --- | --- | --- | --- | --- |\n| rest | bool |  | true | no | determines if representational state transfer (HTTP API) is enabled. This API includes some methods on the device not related to the WebUI interface |\n| panel | bool |  | true | no | determines if the device's webui is active |\n| temp_offset | real | \\-30..30 | 0 | no | it allows you to set the temperature offset locally. Note: setting this parameter will cause the temperature value with the offset to be sent to the myStrom server. A positive value of this parameter will increase the temperature, a negative value will decrease the temperature. Before you set this parameter, leave the device connected to the power supply with the relay turned off for 2 hours in order to equalize the temperature inside the housing. |\n| token | string | 0..255 | empty | no | for the purposes of representational state transfer interface, you can set a token which must be sent as a header (Token: ) in the query to the HTTP server on device. If the token is defined (length> 0) then not sending it in the HTTP request results a Not Found (404) response from the device |\n| hap_disable | bool |  | false | no | determines whether the HomeKit server is down |\n| name | string |  | empty | no | user-defined device name |",
+							"event": [
+								{
+									"listen": "prerequest",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											""
+										]
+									}
+								},
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											""
+										]
+									}
+								}
+							]
+						}
+					]
+				}
+			],
+			"description": "General API conventions\r\n\r\nwhen changing settings using the POST operation, the meaning of the content type in the query does not matter. The device checks the body of the message for syntax, validates data types and ranges. In most cases of POST queries, only the HTTP status code OK 200 is returned with content type text/plain, in the case of setting failure due to bad parameters Bad Request 400 is returned. For GET queries, the device in most cases returns a JSON response with the application/json content type header set.\r\n\r\n![Block Diagram](https://mystrom.ch/postman-static/PIR-block-diagram.png \"Block Diagram\")\r\n\r\n\r\n",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "myStrom New Button Plus",
+			"item": [
+				{
+					"name": "Settings",
+					"item": [
+						{
+							"name": "Settings get",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/settings",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"settings"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Settings get",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/settings",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "449"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"rest\": true,\n    \"panel\": true,\n    \"hap_disable\": true,\n    \"token\": \"\",\n    \"name\": \"\",\n    \"prot_off\": true,\n    \"temp_offset\": 0,\n    \"humi_offset\": 0,\n    \"wakeup_period\": 720,\n    \"measurement_period\": 5,\n    \"compensation\": {\n        \"temp_offset\": {\n            \"awoken\": 2,\n            \"charger\": 5.3,\n            \"charging\": 0.3\n        },\n        \"time_95\": 1620\n    },\n    \"alert\": {\n        \"temp\": {\n            \"hysteresis\": 0.5,\n            \"over\": {\n                \"value\": 0,\n                \"enabled\": false\n            },\n            \"under\": {\n                \"value\": 0,\n                \"enabled\": false\n            }\n        },\n        \"humi\": {\n            \"hysteresis\": 0.5,\n            \"over\": {\n                \"value\": 0,\n                \"enabled\": false\n            },\n            \"under\": {\n                \"value\": 0,\n                \"enabled\": false\n            }\n        }\n    }\n}"
+								}
+							]
+						},
+						{
+							"name": "Settings set",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\"temp_offset\":1}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/settings",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"settings"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Settings set",
+									"originalRequest": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "{\"temp_offset\":1}",
+											"options": {
+												"raw": {
+													"language": "json"
+												}
+											}
+										},
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/settings",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"settings"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "449"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"rest\": true,\n    \"panel\": true,\n    \"hap_disable\": true,\n    \"token\": \"\",\n    \"name\": \"\",\n    \"prot_off\": true,\n    \"temp_offset\": 1,\n    \"humi_offset\": 0,\n    \"wakeup_period\": 720,\n    \"measurement_period\": 5,\n    \"compensation\": {\n        \"temp_offset\": {\n            \"awoken\": 2,\n            \"charger\": 5.3,\n            \"charging\": 0.3\n        },\n        \"time_95\": 1620\n    },\n    \"alert\": {\n        \"temp\": {\n            \"hysteresis\": 0.5,\n            \"over\": {\n                \"value\": 0,\n                \"enabled\": false\n            },\n            \"under\": {\n                \"value\": 0,\n                \"enabled\": false\n            }\n        },\n        \"humi\": {\n            \"hysteresis\": 0.5,\n            \"over\": {\n                \"value\": 0,\n                \"enabled\": false\n            },\n            \"under\": {\n                \"value\": 0,\n                \"enabled\": false\n            }\n        }\n    }\n}"
+								}
+							]
+						}
+					],
+					"description": "### api/v1/settings\n\nThe device has an extensive temperature and humidity compensation mechanism. In the case of temperature, cases where the button is disconnected from the charger, connected to the charger and charging are considered and separate compensation factors are assigned. The time of propagation of the change (the temperature-time curve) is also provided. There are also statically displacement values, e.g. when you know that in a given environment the temperature is always higher or lower by a given value and it does not depend on the condition of the device.\n\nAccurate correction of these values ​​is important especially when the button works as a thermostat, because its temperature increases during charging. Significant load of the button with requests to its local API increases the demand for processor power and this also translates into an increase in temperature measured by the internal sensor. For easier correction, the RAW values ​​of the measurements are provided - that is, the values ​​measured directly by the sensor inside the housing without any offsets.\n\n| Path | api/v1/settings |\n| --- | --- |\n| Method | GET |\n| Body format | application/json, JSON object |\n| Description | Allow to read and write general settings of device |\n\n##### Set/Response JSON object\n\n| Field | Format | Range | Default | Description |\n| --- | --- | --- | --- | --- |\n| rest | bool |  |  | whether local HTTP REST API should be enabled |\n| panel | bool |  |  | whether local user interface (Web UI) should be enabled |\n| hap_disable | bool |  |  | read only (this device does not support HomeKit yet) |\n| name | string | 0..50 | 0 len | device name |\n| prot_off | bool |  | true | HTTP API protection off |\n| token | string | 0..256 |  | a token securing access to the local API |\n| temp_offset | real | \\-30..30 | 0 | generic temperature offset without time dependence |\n| rh_offset | real | \\-30..30 | 0 | generic humidity offset beyond internal independent compensation algorithms |\n| wakeup_period | uint | 5..10080 | 720 | every how many minutes the device should connect to the server |\n| measurement_period | uint | 0..10080 | 0 | every how many minutes the measurement in the sleep state is to be performed, 0 means that the measurements are disabled |\n| compensation.time_95 | uint | 60..3600 | 1620 | time until the temperature difference reaches 95% of the offset value (compensation target temperature) |\n| compensation.temp_offset.awoken | real | 0..30 | 2 | how many degrees Celsius the temperature will increase when the device is turned on and connected to the network |\n| compensation.temp_offset.charger | real | 0..30 | 5.3 | \\+ when charger is connected |\n| compensation.temp_offset.charging | real | 0..30 | 0.3 | \\+ when battery is charging |\n| alert.temp.hysteresis | real | 0.5..10 | 1 | defines how much values must change for the next event to be generated |\n| alert.temp.over.value | real | \\-40..125 | 0 | the event will be reported when the measured temperature value exceeds the preset value by this field, subsequent events will be generated when the temperature value drops below the value plus hysteresis |\n| alert.temp.over.enabled | bool |  | false | whether events from over temperature will be reported |\n| alert.temp.under.value | real | \\-40..125 | 0 | the event will be reported when the measured temperature value drops bellow the preset value by this field, subsequent events will be generated when the temperature value rise over the value plus hysteresis |\n| alert.temp.under.enabled | bool |  | false | whether events from undertemperature will be reported |\n| alert.humi.hysteresis | real | 0.5..10 | 1 | (bellow fields are analogous as for temperature) |\n| alert.humi.over.value | real | 0..100 | 0 |  |\n| alert.humi.over.enabled | bool |  | false |  |\n| alert.humi.under.value | real | 0..100 | 0 |  |\n| alert.humi.under.enabled | bool |  | false |   <br> |\n\nThis method supports patch operation."
+				},
+				{
+					"name": "Sensors",
+					"item": [
+						{
+							"name": "Read sensors",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/sensors",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"sensors"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Read sensors",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/sensors",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"sensors"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "279"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"temperature\": 25.24,\n    \"humidity\": 54.72,\n    \"battery\": {\n        \"voltage\": 4.04,\n        \"charging\": false\n    },\n    \"charger\": {\n        \"voltage\": 4.88,\n        \"connected\": true\n    },\n    \"temperature_compensation\": {\n        \"raw\": 33.54,\n        \"magnitude\": 8.3,\n        \"compensated\": 25.24\n    },\n    \"humidity_compensation\": {\n        \"raw\": 33.9,\n        \"magnitude\": -20.81,\n        \"compensated\": 54.72\n    }\n}"
+								}
+							]
+						}
+					],
+					"description": "### api/v1/sensors\n\n| Path | api/v1/sensors |\n| --- | --- |\n| Method | GET |\n| Body format | application/json, JSON object |\n| Description | Return status of sensors, battery, bus |\n\n##### JSON object\n\n| Field | Format | Description |\n| --- | --- | --- |\n| temperature | real | Compensated temperature |\n| humidity | real | Compensated humidity |\n| battery.voltage | real | Battery voltage |\n| battery.charging | bool | Is battery charging |\n| charger.voltage | real | Bus/USB/charger voltage |\n| charger.connected | bool | Is charger connected |\n| temperature_compensation.raw | real | Temperature read from sensor |\n| temperature_compensation.magnitude | real | Current magnitue of compensation |\n| temperature_compensation.compensated | real | Compensated temperature (same value as in temperature field) |\n| humidity_compensation.raw | real | Humidity read from sensor |\n| humidity_compensation.magnitude | real | Current magnitude of compensation |\n| humidity_compensation.compensated | real | Compensated value |"
+				},
+				{
+					"name": "Measurements",
+					"item": [
+						{
+							"name": "Measurements read",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/meas",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"meas"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Measurements read",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/meas",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"meas"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Transfer-Encoding",
+											"value": "chunked"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "[\n    {\n        \"time\": \"2022-07-14T06:55:40Z\",\n        \"temp\": 24.71,\n        \"humi\": 51.8\n    },\n    {\n        \"time\": \"2022-07-14T07:00:40Z\",\n        \"temp\": 24.72,\n        \"humi\": 51.74\n    },\n    {\n        \"time\": \"2022-07-14T07:05:40Z\",\n        \"temp\": 24.73,\n        \"humi\": 51.7\n    },\n    {\n        \"time\": \"2022-07-14T07:10:40Z\",\n        \"temp\": 24.75,\n        \"humi\": 51.64\n    },\n    {\n        \"time\": \"2022-07-14T07:15:40Z\",\n        \"temp\": 24.83,\n        \"humi\": 51.5\n    },\n    {\n        \"time\": \"2022-07-14T07:20:40Z\",\n        \"temp\": 24.83,\n        \"humi\": 51.43\n    },\n    {\n        \"time\": \"2022-07-14T07:25:41Z\",\n        \"temp\": 24.77,\n        \"humi\": 51.51\n    },\n    {\n        \"time\": \"2022-07-14T07:30:41Z\",\n        \"temp\": 24.9,\n        \"humi\": 51.32\n    },\n    {\n        \"time\": \"2022-07-14T07:35:41Z\",\n        \"temp\": 24.91,\n        \"humi\": 51.2\n    },\n    {\n        \"time\": \"2022-07-14T07:40:41Z\",\n        \"temp\": 24.98,\n        \"humi\": 51.11\n    },\n    {\n        \"time\": \"2022-07-14T07:45:41Z\",\n        \"temp\": 24.98,\n        \"humi\": 51\n    },\n    {\n        \"time\": \"2022-07-14T07:50:41Z\",\n        \"temp\": 25.02,\n        \"humi\": 51\n    },\n    {\n        \"time\": \"2022-07-14T07:55:41Z\",\n        \"temp\": 25.07,\n        \"humi\": 50.86\n    },\n    {\n        \"time\": \"2022-07-14T08:00:41Z\",\n        \"temp\": 25.15,\n        \"humi\": 50.69\n    },\n    {\n        \"time\": \"2022-07-14T08:05:41Z\",\n        \"temp\": 25.16,\n        \"humi\": 50.63\n    },\n    {\n        \"time\": \"2022-07-14T08:10:42Z\",\n        \"temp\": 25.17,\n        \"humi\": 50.59\n    },\n    {\n        \"time\": \"2022-07-14T08:15:42Z\",\n        \"temp\": 25.16,\n        \"humi\": 50.62\n    },\n    {\n        \"time\": \"2022-07-14T08:20:42Z\",\n        \"temp\": 25.23,\n        \"humi\": 50.46\n    },\n    {\n        \"time\": \"2022-07-14T08:25:42Z\",\n        \"temp\": 25.24,\n        \"humi\": 50.46\n    },\n    {\n        \"time\": \"2022-07-14T08:30:42Z\",\n        \"temp\": 25.27,\n        \"humi\": 50.35\n    },\n    {\n        \"time\": \"2022-07-14T08:35:42Z\",\n        \"temp\": 25.4,\n        \"humi\": 50.29\n    },\n    {\n        \"time\": \"2022-07-14T08:40:42Z\",\n        \"temp\": 25.53,\n        \"humi\": 50.04\n    },\n    {\n        \"time\": \"2022-07-14T08:45:42Z\",\n        \"temp\": 25.52,\n        \"humi\": 50\n    },\n    {\n        \"time\": \"2022-07-14T08:50:42Z\",\n        \"temp\": 25.67,\n        \"humi\": 49.78\n    },\n    {\n        \"time\": \"2022-07-14T08:55:43Z\",\n        \"temp\": 25.71,\n        \"humi\": 49.93\n    },\n    {\n        \"time\": \"2022-07-14T09:00:43Z\",\n        \"temp\": 25.7,\n        \"humi\": 50.04\n    },\n    {\n        \"time\": \"2022-07-14T09:05:43Z\",\n        \"temp\": 25.92,\n        \"humi\": 49.96\n    },\n    {\n        \"time\": \"2022-07-14T09:10:43Z\",\n        \"temp\": 26.02,\n        \"humi\": 49.86\n    },\n    {\n        \"time\": \"2022-07-14T09:15:43Z\",\n        \"temp\": 26.05,\n        \"humi\": 50\n    },\n    {\n        \"time\": \"2022-07-14T09:20:43Z\",\n        \"temp\": 26.04,\n        \"humi\": 50.05\n    },\n    {\n        \"time\": \"2022-07-14T09:25:43Z\",\n        \"temp\": 26.22,\n        \"humi\": 49.69\n    },\n    {\n        \"time\": \"2022-07-14T09:30:43Z\",\n        \"temp\": 26.31,\n        \"humi\": 49.57\n    },\n    {\n        \"time\": \"2022-07-14T09:35:43Z\",\n        \"temp\": 26.36,\n        \"humi\": 49.58\n    },\n    {\n        \"time\": \"2022-07-14T09:40:44Z\",\n        \"temp\": 26.43,\n        \"humi\": 49.4\n    },\n    {\n        \"time\": \"2022-07-14T09:45:44Z\",\n        \"temp\": 26.55,\n        \"humi\": 49.32\n    },\n    {\n        \"time\": \"2022-07-14T09:50:44Z\",\n        \"temp\": 26.62,\n        \"humi\": 49.3\n    },\n    {\n        \"time\": \"2022-07-14T09:55:44Z\",\n        \"temp\": 26.67,\n        \"humi\": 49.09\n    },\n    {\n        \"time\": \"2022-07-14T10:00:44Z\",\n        \"temp\": 26.68,\n        \"humi\": 49.19\n    },\n    {\n        \"time\": \"2022-07-14T10:05:44Z\",\n        \"temp\": 26.94,\n        \"humi\": 48.52\n    },\n    {\n        \"time\": \"2022-07-14T10:10:44Z\",\n        \"temp\": 26.91,\n        \"humi\": 48.61\n    },\n    {\n        \"time\": \"2022-07-14T10:15:44Z\",\n        \"temp\": 26.88,\n        \"humi\": 48.73\n    },\n    {\n        \"time\": \"2022-07-14T10:20:45Z\",\n        \"temp\": 27.02,\n        \"humi\": 48.34\n    },\n    {\n        \"time\": \"2022-07-14T10:25:45Z\",\n        \"temp\": 26.76,\n        \"humi\": 48.56\n    },\n    {\n        \"time\": \"2022-07-14T10:30:45Z\",\n        \"temp\": 26.86,\n        \"humi\": 48.28\n    },\n    {\n        \"time\": \"2022-07-14T10:35:45Z\",\n        \"temp\": 26.86,\n        \"humi\": 48.17\n    },\n    {\n        \"time\": \"2022-07-14T10:40:45Z\",\n        \"temp\": 26.82,\n        \"humi\": 48.24\n    },\n    {\n        \"time\": \"2022-07-14T10:45:45Z\",\n        \"temp\": 26.84,\n        \"humi\": 48.33\n    },\n    {\n        \"time\": \"2022-07-14T10:50:45Z\",\n        \"temp\": 26.91,\n        \"humi\": 48.24\n    },\n    {\n        \"time\": \"2022-07-14T10:55:45Z\",\n        \"temp\": 26.95,\n        \"humi\": 48.08\n    },\n    {\n        \"time\": \"2022-07-14T11:00:45Z\",\n        \"temp\": 26.87,\n        \"humi\": 48.07\n    },\n    {\n        \"time\": \"2022-07-14T11:05:46Z\",\n        \"temp\": 26.84,\n        \"humi\": 48.06\n    },\n    {\n        \"time\": \"2022-07-14T11:10:46Z\",\n        \"temp\": 26.77,\n        \"humi\": 48.21\n    },\n    {\n        \"time\": \"2022-07-14T11:15:46Z\",\n        \"temp\": 26.78,\n        \"humi\": 48.28\n    },\n    {\n        \"time\": \"2022-07-14T11:20:46Z\",\n        \"temp\": 26.93,\n        \"humi\": 48.19\n    },\n    {\n        \"time\": \"2022-07-14T11:25:46Z\",\n        \"temp\": 26.89,\n        \"humi\": 48.3\n    },\n    {\n        \"time\": \"2022-07-14T11:30:46Z\",\n        \"temp\": 26.78,\n        \"humi\": 48.51\n    },\n    {\n        \"time\": \"2022-07-14T11:35:46Z\",\n        \"temp\": 26.78,\n        \"humi\": 48.55\n    },\n    {\n        \"time\": \"2022-07-14T11:40:46Z\",\n        \"temp\": 26.82,\n        \"humi\": 48.55\n    },\n    {\n        \"time\": \"2022-07-14T11:45:47Z\",\n        \"temp\": 26.87,\n        \"humi\": 48.6\n    },\n    {\n        \"time\": \"2022-07-14T11:50:47Z\",\n        \"temp\": 26.87,\n        \"humi\": 48.53\n    },\n    {\n        \"time\": \"2022-07-14T11:55:47Z\",\n        \"temp\": 26.97,\n        \"humi\": 48.51\n    },\n    {\n        \"time\": \"2022-07-14T12:00:47Z\",\n        \"temp\": 27.11,\n        \"humi\": 48.3\n    },\n    {\n        \"time\": \"2022-07-14T12:05:47Z\",\n        \"temp\": 27.11,\n        \"humi\": 48.12\n    },\n    {\n        \"time\": \"2022-07-14T12:10:47Z\",\n        \"temp\": 27.03,\n        \"humi\": 48.26\n    },\n    {\n        \"time\": \"2022-07-14T12:15:47Z\",\n        \"temp\": 27.11,\n        \"humi\": 48\n    },\n    {\n        \"time\": \"2022-07-14T12:20:47Z\",\n        \"temp\": 27.05,\n        \"humi\": 48.13\n    },\n    {\n        \"time\": \"2022-07-14T12:25:47Z\",\n        \"temp\": 26.99,\n        \"humi\": 48.5\n    },\n    {\n        \"time\": \"2022-07-14T12:30:48Z\",\n        \"temp\": 27.16,\n        \"humi\": 48.24\n    },\n    {\n        \"time\": \"2022-07-14T12:35:48Z\",\n        \"temp\": 27.16,\n        \"humi\": 48.08\n    },\n    {\n        \"time\": \"2022-07-14T12:40:48Z\",\n        \"temp\": 27.11,\n        \"humi\": 47.98\n    },\n    {\n        \"time\": \"2022-07-14T12:45:48Z\",\n        \"temp\": 27.06,\n        \"humi\": 48.02\n    },\n    {\n        \"time\": \"2022-07-14T12:50:48Z\",\n        \"temp\": 27.08,\n        \"humi\": 47.8\n    },\n    {\n        \"time\": \"2022-07-14T12:55:48Z\",\n        \"temp\": 27.06,\n        \"humi\": 47.74\n    },\n    {\n        \"time\": \"2022-07-14T13:00:48Z\",\n        \"temp\": 26.92,\n        \"humi\": 47.86\n    },\n    {\n        \"time\": \"2022-07-14T13:05:48Z\",\n        \"temp\": 26.94,\n        \"humi\": 47.82\n    },\n    {\n        \"time\": \"2022-07-14T13:10:48Z\",\n        \"temp\": 26.79,\n        \"humi\": 47.91\n    },\n    {\n        \"time\": \"2022-07-14T13:15:49Z\",\n        \"temp\": 26.77,\n        \"humi\": 47.88\n    },\n    {\n        \"time\": \"2022-07-14T13:20:49Z\",\n        \"temp\": 26.69,\n        \"humi\": 48.01\n    },\n    {\n        \"time\": \"2022-07-14T13:25:49Z\",\n        \"temp\": 26.69,\n        \"humi\": 48\n    },\n    {\n        \"time\": \"2022-07-14T13:30:49Z\",\n        \"temp\": 26.65,\n        \"humi\": 47.99\n    },\n    {\n        \"time\": \"2022-07-14T13:35:49Z\",\n        \"temp\": 26.68,\n        \"humi\": 48.01\n    },\n    {\n        \"time\": \"2022-07-14T13:40:49Z\",\n        \"temp\": 26.69,\n        \"humi\": 48.03\n    },\n    {\n        \"time\": \"2022-07-14T13:45:49Z\",\n        \"temp\": 26.65,\n        \"humi\": 48.01\n    },\n    {\n        \"time\": \"2022-07-14T13:50:49Z\",\n        \"temp\": 26.64,\n        \"humi\": 48.07\n    },\n    {\n        \"time\": \"2022-07-14T13:55:49Z\",\n        \"temp\": 26.66,\n        \"humi\": 47.97\n    },\n    {\n        \"time\": \"2022-07-14T14:00:50Z\",\n        \"temp\": 26.52,\n        \"humi\": 48.12\n    },\n    {\n        \"time\": \"2022-07-14T14:05:50Z\",\n        \"temp\": 26.49,\n        \"humi\": 48.19\n    },\n    {\n        \"time\": \"2022-07-14T14:10:50Z\",\n        \"temp\": 26.55,\n        \"humi\": 48.17\n    },\n    {\n        \"time\": \"2022-07-14T14:15:50Z\",\n        \"temp\": 26.52,\n        \"humi\": 48.11\n    },\n    {\n        \"time\": \"2022-07-14T14:20:50Z\",\n        \"temp\": 26.53,\n        \"humi\": 48.13\n    },\n    {\n        \"time\": \"2022-07-14T14:25:50Z\",\n        \"temp\": 26.63,\n        \"humi\": 48.06\n    },\n    {\n        \"time\": \"2022-07-14T14:30:50Z\",\n        \"temp\": 26.5,\n        \"humi\": 48.2\n    },\n    {\n        \"time\": \"2022-07-14T14:35:50Z\",\n        \"temp\": 26.53,\n        \"humi\": 48.21\n    },\n    {\n        \"time\": \"2022-07-14T14:40:50Z\",\n        \"temp\": 26.47,\n        \"humi\": 48.28\n    },\n    {\n        \"time\": \"2022-07-14T14:45:51Z\",\n        \"temp\": 26.44,\n        \"humi\": 48.4\n    },\n    {\n        \"time\": \"2022-07-14T14:50:51Z\",\n        \"temp\": 26.43,\n        \"humi\": 48.4\n    },\n    {\n        \"time\": \"2022-07-14T14:55:51Z\",\n        \"temp\": 26.43,\n        \"humi\": 48.43\n    },\n    {\n        \"time\": \"2022-07-14T15:00:51Z\",\n        \"temp\": 26.45,\n        \"humi\": 48.46\n    },\n    {\n        \"time\": \"2022-07-14T15:05:51Z\",\n        \"temp\": 26.41,\n        \"humi\": 48.41\n    },\n    {\n        \"time\": \"2022-07-14T15:10:51Z\",\n        \"temp\": 26.4,\n        \"humi\": 48.46\n    },\n    {\n        \"time\": \"2022-07-14T15:15:51Z\",\n        \"temp\": 26.38,\n        \"humi\": 48.56\n    },\n    {\n        \"time\": \"2022-07-14T15:20:51Z\",\n        \"temp\": 26.31,\n        \"humi\": 48.65\n    },\n    {\n        \"time\": \"2022-07-14T15:25:51Z\",\n        \"temp\": 26.28,\n        \"humi\": 48.69\n    },\n    {\n        \"time\": \"2022-07-14T15:30:52Z\",\n        \"temp\": 26.26,\n        \"humi\": 48.78\n    },\n    {\n        \"time\": \"2022-07-14T15:35:52Z\",\n        \"temp\": 26.21,\n        \"humi\": 48.74\n    },\n    {\n        \"time\": \"2022-07-14T15:40:52Z\",\n        \"temp\": 26.27,\n        \"humi\": 48.78\n    },\n    {\n        \"time\": \"2022-07-14T15:45:52Z\",\n        \"temp\": 26.26,\n        \"humi\": 48.73\n    },\n    {\n        \"time\": \"2022-07-14T15:50:52Z\",\n        \"temp\": 26.24,\n        \"humi\": 48.8\n    },\n    {\n        \"time\": \"2022-07-14T15:55:52Z\",\n        \"temp\": 26.26,\n        \"humi\": 48.76\n    },\n    {\n        \"time\": \"2022-07-14T16:00:52Z\",\n        \"temp\": 26.25,\n        \"humi\": 48.78\n    },\n    {\n        \"time\": \"2022-07-14T16:05:52Z\",\n        \"temp\": 26.22,\n        \"humi\": 48.89\n    },\n    {\n        \"time\": \"2022-07-14T16:10:52Z\",\n        \"temp\": 26.24,\n        \"humi\": 48.84\n    },\n    {\n        \"time\": \"2022-07-14T16:15:53Z\",\n        \"temp\": 26.24,\n        \"humi\": 48.82\n    },\n    {\n        \"time\": \"2022-07-14T16:20:53Z\",\n        \"temp\": 26.18,\n        \"humi\": 48.97\n    },\n    {\n        \"time\": \"2022-07-14T16:25:53Z\",\n        \"temp\": 26.22,\n        \"humi\": 48.9\n    },\n    {\n        \"time\": \"2022-07-14T16:30:53Z\",\n        \"temp\": 26.19,\n        \"humi\": 49\n    },\n    {\n        \"time\": \"2022-07-14T16:35:53Z\",\n        \"temp\": 26.22,\n        \"humi\": 49.02\n    },\n    {\n        \"time\": \"2022-07-14T16:40:53Z\",\n        \"temp\": 26.21,\n        \"humi\": 48.91\n    },\n    {\n        \"time\": \"2022-07-14T16:45:53Z\",\n        \"temp\": 26.21,\n        \"humi\": 48.97\n    },\n    {\n        \"time\": \"2022-07-14T16:50:53Z\",\n        \"temp\": 26.22,\n        \"humi\": 48.95\n    },\n    {\n        \"time\": \"2022-07-14T16:55:53Z\",\n        \"temp\": 26.24,\n        \"humi\": 48.92\n    },\n    {\n        \"time\": \"2022-07-14T17:00:54Z\",\n        \"temp\": 26.24,\n        \"humi\": 49\n    },\n    {\n        \"time\": \"2022-07-14T17:05:54Z\",\n        \"temp\": 26.18,\n        \"humi\": 49.07\n    },\n    {\n        \"time\": \"2022-07-14T17:10:54Z\",\n        \"temp\": 26.19,\n        \"humi\": 49.1\n    },\n    {\n        \"time\": \"2022-07-14T17:15:54Z\",\n        \"temp\": 26.21,\n        \"humi\": 49.09\n    },\n    {\n        \"time\": \"2022-07-14T17:20:54Z\",\n        \"temp\": 26.15,\n        \"humi\": 49.21\n    },\n    {\n        \"time\": \"2022-07-14T17:25:54Z\",\n        \"temp\": 26.17,\n        \"humi\": 49.23\n    },\n    {\n        \"time\": \"2022-07-14T17:30:54Z\",\n        \"temp\": 26.18,\n        \"humi\": 49.16\n    },\n    {\n        \"time\": \"2022-07-14T17:35:54Z\",\n        \"temp\": 26.12,\n        \"humi\": 49.32\n    },\n    {\n        \"time\": \"2022-07-14T17:40:55Z\",\n        \"temp\": 26.16,\n        \"humi\": 49.27\n    },\n    {\n        \"time\": \"2022-07-14T17:45:55Z\",\n        \"temp\": 26.12,\n        \"humi\": 49.4\n    },\n    {\n        \"time\": \"2022-07-14T17:50:55Z\",\n        \"temp\": 26.13,\n        \"humi\": 49.35\n    },\n    {\n        \"time\": \"2022-07-14T17:55:55Z\",\n        \"temp\": 26.14,\n        \"humi\": 49.42\n    },\n    {\n        \"time\": \"2022-07-14T18:00:55Z\",\n        \"temp\": 26.15,\n        \"humi\": 49.32\n    },\n    {\n        \"time\": \"2022-07-14T18:05:55Z\",\n        \"temp\": 26.08,\n        \"humi\": 49.5\n    },\n    {\n        \"time\": \"2022-07-14T18:10:55Z\",\n        \"temp\": 26.16,\n        \"humi\": 49.41\n    },\n    {\n        \"time\": \"2022-07-14T18:15:55Z\",\n        \"temp\": 26.2,\n        \"humi\": 49.24\n    },\n    {\n        \"time\": \"2022-07-14T18:20:55Z\",\n        \"temp\": 26.2,\n        \"humi\": 49.28\n    },\n    {\n        \"time\": \"2022-07-14T18:25:56Z\",\n        \"temp\": 26.17,\n        \"humi\": 49.32\n    },\n    {\n        \"time\": \"2022-07-14T18:30:56Z\",\n        \"temp\": 26.16,\n        \"humi\": 49.34\n    },\n    {\n        \"time\": \"2022-07-14T18:35:56Z\",\n        \"temp\": 26.18,\n        \"humi\": 49.39\n    },\n    {\n        \"time\": \"2022-07-14T18:40:56Z\",\n        \"temp\": 26.12,\n        \"humi\": 49.43\n    },\n    {\n        \"time\": \"2022-07-14T18:45:56Z\",\n        \"temp\": 26.05,\n        \"humi\": 50.08\n    },\n    {\n        \"time\": \"2022-07-14T18:50:56Z\",\n        \"temp\": 26.05,\n        \"humi\": 50.11\n    },\n    {\n        \"time\": \"2022-07-14T18:55:56Z\",\n        \"temp\": 25.96,\n        \"humi\": 50.32\n    },\n    {\n        \"time\": \"2022-07-14T19:00:56Z\",\n        \"temp\": 26.06,\n        \"humi\": 50.14\n    },\n    {\n        \"time\": \"2022-07-14T19:05:56Z\",\n        \"temp\": 26.06,\n        \"humi\": 50.11\n    },\n    {\n        \"time\": \"2022-07-14T19:10:57Z\",\n        \"temp\": 26.12,\n        \"humi\": 50.05\n    },\n    {\n        \"time\": \"2022-07-14T19:15:57Z\",\n        \"temp\": 26.13,\n        \"humi\": 49.9\n    },\n    {\n        \"time\": \"2022-07-14T19:20:57Z\",\n        \"temp\": 26.12,\n        \"humi\": 49.88\n    },\n    {\n        \"time\": \"2022-07-14T19:25:57Z\",\n        \"temp\": 26.16,\n        \"humi\": 49.85\n    },\n    {\n        \"time\": \"2022-07-14T19:30:57Z\",\n        \"temp\": 26.1,\n        \"humi\": 49.87\n    },\n    {\n        \"time\": \"2022-07-14T19:35:57Z\",\n        \"temp\": 26.12,\n        \"humi\": 49.89\n    },\n    {\n        \"time\": \"2022-07-14T19:40:57Z\",\n        \"temp\": 26.1,\n        \"humi\": 49.87\n    },\n    {\n        \"time\": \"2022-07-14T19:45:57Z\",\n        \"temp\": 26.11,\n        \"humi\": 49.84\n    },\n    {\n        \"time\": \"2022-07-14T19:50:57Z\",\n        \"temp\": 26.05,\n        \"humi\": 49.81\n    },\n    {\n        \"time\": \"2022-07-14T19:55:58Z\",\n        \"temp\": 26.1,\n        \"humi\": 49.79\n    },\n    {\n        \"time\": \"2022-07-14T20:00:58Z\",\n        \"temp\": 26.08,\n        \"humi\": 49.96\n    },\n    {\n        \"time\": \"2022-07-14T20:05:58Z\",\n        \"temp\": 26.01,\n        \"humi\": 50.09\n    },\n    {\n        \"time\": \"2022-07-14T20:10:58Z\",\n        \"temp\": 25.99,\n        \"humi\": 50.34\n    },\n    {\n        \"time\": \"2022-07-14T20:15:58Z\",\n        \"temp\": 26.02,\n        \"humi\": 50.23\n    },\n    {\n        \"time\": \"2022-07-14T20:20:58Z\",\n        \"temp\": 26.12,\n        \"humi\": 50.11\n    },\n    {\n        \"time\": \"2022-07-14T20:25:58Z\",\n        \"temp\": 26.07,\n        \"humi\": 50.35\n    },\n    {\n        \"time\": \"2022-07-14T20:30:58Z\",\n        \"temp\": 26.05,\n        \"humi\": 50.54\n    },\n    {\n        \"time\": \"2022-07-14T20:35:58Z\",\n        \"temp\": 26.12,\n        \"humi\": 50.61\n    },\n    {\n        \"time\": \"2022-07-14T20:40:59Z\",\n        \"temp\": 26.17,\n        \"humi\": 50.7\n    },\n    {\n        \"time\": \"2022-07-14T20:45:59Z\",\n        \"temp\": 26.15,\n        \"humi\": 50.78\n    },\n    {\n        \"time\": \"2022-07-14T20:50:59Z\",\n        \"temp\": 26.19,\n        \"humi\": 50.93\n    },\n    {\n        \"time\": \"2022-07-14T20:55:59Z\",\n        \"temp\": 26.12,\n        \"humi\": 50.94\n    },\n    {\n        \"time\": \"2022-07-14T21:00:59Z\",\n        \"temp\": 26.14,\n        \"humi\": 50.93\n    },\n    {\n        \"time\": \"2022-07-14T21:05:59Z\",\n        \"temp\": 26.14,\n        \"humi\": 50.85\n    },\n    {\n        \"time\": \"2022-07-14T21:10:59Z\",\n        \"temp\": 26.08,\n        \"humi\": 50.87\n    },\n    {\n        \"time\": \"2022-07-14T21:15:59Z\",\n        \"temp\": 26.17,\n        \"humi\": 50.96\n    },\n    {\n        \"time\": \"2022-07-14T21:21:00Z\",\n        \"temp\": 26.17,\n        \"humi\": 51.09\n    },\n    {\n        \"time\": \"2022-07-14T21:26:00Z\",\n        \"temp\": 26.17,\n        \"humi\": 51.23\n    },\n    {\n        \"time\": \"2022-07-14T21:31:00Z\",\n        \"temp\": 26.19,\n        \"humi\": 51.32\n    },\n    {\n        \"time\": \"2022-07-14T21:36:00Z\",\n        \"temp\": 26.16,\n        \"humi\": 51.5\n    },\n    {\n        \"time\": \"2022-07-14T21:41:00Z\",\n        \"temp\": 26.18,\n        \"humi\": 51.46\n    },\n    {\n        \"time\": \"2022-07-14T21:46:00Z\",\n        \"temp\": 26.22,\n        \"humi\": 51.49\n    },\n    {\n        \"time\": \"2022-07-14T21:51:00Z\",\n        \"temp\": 26.17,\n        \"humi\": 51.6\n    }\n]"
+								}
+							]
+						}
+					],
+					"description": "### api/v1/meas\n\n| Path | api/v1/meas |\n| --- | --- |\n| Method | GET |\n| Body format | application/json, array of JSON objects |\n| Description | Returns measurements collected every measurement period (> 0) |\n\n##### JSON object\n\n| Field | Format | Description |\n| --- | --- | --- |\n| time | YYYY-MM-DDTHH:MM:SSZ |  |\n| temp | real | Compensated temperature |\n| humi | real | Compensated humidity |\n\nUp to 180 measurements are collected, then the eldest measurment are removed and new added. Calling of this API don't clear measurements."
+				},
+				{
+					"name": "Actions (Web hooks)",
+					"item": [
+						{
+							"name": "Read all actions",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/actions",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"actions"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Read all actions",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/actions",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"actions"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Transfer-Encoding",
+											"value": "chunked"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"generic\": {\n        \"generic\": \"\",\n        \"single\": \"\",\n        \"double\": \"\",\n        \"long\": \"\",\n        \"over\": \"\",\n        \"under\": \"\"\n    },\n    \"btn1\": {\n        \"generic\": \"\",\n        \"single\": \"post://192.168.0.38/api/v1/dimmer/0/toggle?value=10\",\n        \"double\": \"\",\n        \"long\": \"\"\n    },\n    \"btn2\": {\n        \"generic\": \"\",\n        \"single\": \"\",\n        \"double\": \"\",\n        \"long\": \"\"\n    },\n    \"btn3\": {\n        \"generic\": \"\",\n        \"single\": \"\",\n        \"double\": \"\",\n        \"long\": \"\"\n    },\n    \"btn4\": {\n        \"generic\": \"\",\n        \"single\": \"\",\n        \"double\": \"\",\n        \"long\": \"\"\n    },\n    \"temp\": {\n        \"generic\": \"\",\n        \"over\": \"\",\n        \"under\": \"\"\n    },\n    \"humi\": {\n        \"generic\": \"\",\n        \"over\": \"\",\n        \"under\": \"\"\n    }\n}"
+								}
+							]
+						},
+						{
+							"name": "Read all actions for component",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/actions/btn2",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"actions",
+										"btn2"
+									]
+								},
+								"description": "##### Generic syntax\n\nStartFragment\n\n`http://{{dev_ip}}/api/v1/actions/`\n\nwhere the component is one of: btn1, btn2, btn3, btn4, temp, humi, or generic\n\nEndFragment"
+							},
+							"response": [
+								{
+									"name": "Read actions for component",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/actions/btn2",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"actions",
+												"btn2"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "48"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"generic\": \"\",\n    \"single\": \"\",\n    \"double\": \"\",\n    \"long\": \"\"\n}"
+								}
+							]
+						},
+						{
+							"name": "Read specific action",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/action/temp/over",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"temp",
+										"over"
+									]
+								},
+								"description": "##### Genetic syntax\n\nStartFragment\n\n`http://{{dev_ip}}/api/v1/action//`\n\nEndFragment\n\nwhere action for buttons can be one of: `generic|single|double|long`\n\nthe action for temp or humi can be one of: `generic|over|under`"
+							},
+							"response": [
+								{
+									"name": "Read specific action",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/action/temp/over",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"action",
+												"temp",
+												"over"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										},
+										{
+											"key": "Content-Length",
+											"value": "10"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": "{\n    \"url\": \"\"\n}"
+								}
+							]
+						},
+						{
+							"name": "Set specific action",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "get://192.168.0.37/test/btn2/single"
+								},
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/action/btn2/single",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"action",
+										"btn2",
+										"single"
+									]
+								}
+							},
+							"response": [
+								{
+									"name": "Set specific action",
+									"originalRequest": {
+										"method": "POST",
+										"header": [],
+										"body": {
+											"mode": "raw",
+											"raw": "get://192.168.0.37/test/btn2/single"
+										},
+										"url": {
+											"raw": "http://{{dev_ip}}/api/v1/action/btn2/single",
+											"protocol": "http",
+											"host": [
+												"{{dev_ip}}"
+											],
+											"path": [
+												"api",
+												"v1",
+												"action",
+												"btn2",
+												"single"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "plain",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										},
+										{
+											"key": "Content-Length",
+											"value": "0"
+										},
+										{
+											"key": "Pragma",
+											"value": "no-cache"
+										},
+										{
+											"key": "Cache-Control",
+											"value": "no-store, no-cache"
+										}
+									],
+									"cookie": [],
+									"body": null
+								}
+							]
+						}
+					],
+					"description": "### Local actions URIs\n\nThe device supports many types of actions to which you can assign webhooks. When the given action takes place, the given address of the request is executed. Using the action, the button can be set so that it controls individual devices, e.g. a single press turns on a switch relay, or sends actions to the server (e.g. you have a server that can handle the action and take further actions based on parameters). For each action, e.g. single pressing of the first button, many webhooks can be assigned, e.g. in case you want to control two devices at the same time.  \nThe button also supports the execution of actions related to exceeding the temperature or humidity limit. When the temperature is too low or too high, the action is triggered, e.g. the case of a thermostat, when the button measures the temperature and with the use of an action it turns on or off the switch output. Same for humidity.  \nIn the case of integrating the button with the server, after setting the generic / generic action, it periodically sends measurements to the server (default value is 12h).\n\n| Path | api/v1/actions(s) |\n| --- | --- |\n| Method | GET |\n| Body format | application/json, JSON object |\n| Description | Return action URI |\n\n##### Response as JSON object\n\n| Field | Format | Description |\n| --- | --- | --- |\n| url | string |  |\n\nSet (POST) request should be performed with plain text body containing action URI (see request syntax in PIR buttons actions).\n\nThe action address can have up to 767 characters long.\n\nSend of empty body (string) cause erase/disable specific action.\n\n``` json\n{\n  \"generic\": {\n    \"generic\": \"\",\n    \"single\": \"\",\n    \"double\": \"\",\n    \"long\": \"\",\n    \"over\": \"\",\n    \"under\": \"\"\n  },\n  \"btn1\": {\n    \"generic\": \"\",\n    \"single\": \"\",\n    \"double\": \"\",\n    \"long\": \"\"\n  },\n  \"btn2\": {\n    \"generic\": \"\",\n    \"single\": \"\",\n    \"double\": \"\",\n    \"long\": \"\"\n  },\n  \"btn3\": {\n    \"generic\": \"\",\n    \"single\": \"\",\n    \"double\": \"\",\n    \"long\": \"\"\n  },\n  \"btn4\": {\n    \"generic\": \"\",\n    \"single\": \"\",\n    \"double\": \"\",\n    \"long\": \"\"\n  },\n  \"temp\": {\n    \"generic\": \"\",\n    \"over\": \"\",\n    \"under\": \"\"\n  },\n  \"humi\": {\n    \"generic\": \"\",\n    \"over\": \"\",\n    \"under\": \"\"\n  }\n}\n\n```\n\n##### Description of parameters added when calling general actions.\n\nIn addition to the parameters that are given in the address to be performed, in the case of generic actions, additional parameters are added to distinguish by receiving server between what the action was source. There also are passed additionally measurements.\n\nFor example we set generic action for button 2, like this: `url -i -d get://192.168.0.37:7002/test/btn2/generic' http://192.168.0.23/api/v1/action/btn2/generic`\n\nthen after press the button 2 in any pattern the bellow request are send:\n\n```\nGET /test/btn2/generic?mac=E0E2E650AD78&action=1&bat=4.04&temp=26.23&rh=51.86 HTTP/1.1\nHost: 192.168.0.37:7002\nConnection: close\n\n```\n\nAs you see additional parameters are added in request: mac, action, bat, temp, rh.\n\nDescription of parameters added in generic actions\n\n| Name | Type | Description |\n| --- | --- | --- |\n| mac | string | device MAC address |\n| index | uint | the ID of component triggered the action. The components IDs will be described follow. |\n| action | uint | action what triggered the request, for example: single press. The actions numbers will be described follow. |\n| bat | real | the current battery voltage in volts |\n| temp | real | the current temperature in Celsius |\n| rh | real | the current relative humidity in percents |\n\nComponents IDs\n\n| Value | Component | Mentions |\n| --- | --- | --- |\n| 0 | generic | if the generic/generic action is set, the battery, temp, humi values are send periodically (at 12h) at address defined in action |\n| 1 | button 1 |  |\n| 2 | button 2 |  |\n| 3 | button 3 |  |\n| 4 | button 4 |  |\n| 5 | temperature sensor | the over/under temperature event caused action request |\n| 6 | humidity sensor | the over/under humidity event caused action request |\n\nActions IDs\n\n| Value | Source | Mentions |\n| --- | --- | --- |\n| 1 | short/single press |  |\n| 2 | double press |  |\n| 3 | long press |  |\n| 6 | battery |  |\n| 13 | generic | case of periodically reports |\n| 28 | over value | the over value caused request, temperature or humidity can be distinguished by component ID |\n| 29 | under value | the under value caused request, temperature or humidity can be distinguished by component ID |"
+				},
+				{
+					"name": "Realtime reports (experimental API)",
+					"item": [
+						{
+							"name": "Measurements stream",
+							"protocolProfileBehavior": {
+								"followRedirects": false,
+								"disableUrlEncoding": true
+							},
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "http://{{dev_ip}}/api/v1/reports",
+									"protocol": "http",
+									"host": [
+										"{{dev_ip}}"
+									],
+									"path": [
+										"api",
+										"v1",
+										"reports"
+									]
+								}
+							},
+							"response": []
+						}
+					],
+					"description": "### api/v1/reports (experimental API)\n\n| Path | api/v1/reports |\n| --- | --- |\n| Method | GET |\n| Body format | text/event-stream, SSE |\n| Description | Send temperature and humidity event every 5s |\n\n```\nevent: meas\ndata: {\"temp\":25.31,\"humi\":24.84}\n\n```\n\nevery 5s (no configuration parameters, filters etc.), the temperature and humidity are compensated"
+				}
+			],
+			"description": "This device has four buttons, a temperature and humidity sensor. The internal battery allows operation up to 2 months without recharging.  \nEach button has three types of presses: single press, double press, and long press.  \nThe internal temperature and humidity sensor detects the change in value and on its basis allows you to take action, and the measurements are sent to the server.  \nAdditional possibilities such as local storage of measurements or real-time measurements can be used while the device is permanently connected to the power supply.\n\nThe local API is available after connecting the button to the power supply."
+		},
+		{
+			"name": "Discovery devices",
+			"item": [],
+			"description": "Each device cyclically (every 5 seconds) sends a broadcast packet using the UDP protocol to the address 255.255.255.255 and port 7979.\n\nThe broadcast packet is 8 bytes and is described by the image below:\n\n<img src=\"https://mystrom.ch/postman-static/BroadcastItem.svg\" alt=\"\">\n\n##### Device types\n\n| **Numerical type** | **Device** |\n| --- | --- |\n| 102 | Bulb |\n| 103 | Button plus 1st generation |\n| 104 | Button small/simple |\n| 105 | LED Strip |\n| 106 | Switch CH |\n| 107 | Switch EU |\n| 110 | Motion Sensor |\n| 112 | Gateway |\n| 113 | STECCO/CUBO |\n| 118 | Button Plus 2nd generation |\n| 120 | Switch Zero |"
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
